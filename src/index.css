@@ -25,9 +25,12 @@ input, select, textarea, button {
   font-family: inherit;
 }
 
-/* Hide native number spinners on tel-like inputs typed as text; kept for iOS zoom-safe 16px inputs */
+/* Fuerza 16px en campos de formulario: por debajo de eso, iOS Safari hace
+   zoom automático al enfocar el input. !important porque los componentes
+   usan utilidades de Tailwind (ej. text-[15px]) con mayor especificidad
+   que esta regla por tipo de elemento. */
 input, select, textarea {
-  font-size: 16px;
+  font-size: 16px !important;
 }
 
 ::-webkit-scrollbar {
@@ -121,4 +124,32 @@ input, select, textarea {
 
 .animate-pop-in {
   animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* --- Ilustración 3D del portal de acceso --- */
+
+.tilt-3d-wrap {
+  perspective: 1400px;
+}
+
+.tilt-3d {
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.55));
+  animation: float-3d 7s ease-in-out infinite;
+}
+
+@keyframes float-3d {
+  0%, 100% {
+    transform: rotateY(-14deg) rotateX(6deg) translateY(0);
+  }
+  50% {
+    transform: rotateY(-8deg) rotateX(3deg) translateY(-14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt-3d {
+    animation: none;
+    transform: rotateY(-14deg) rotateX(6deg);
+  }
 }
