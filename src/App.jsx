@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import CosmicBackground from './components/CosmicBackground'
 import CutoffBanner from './components/CutoffBanner'
 import Footer from './components/Footer'
 import Header from './components/Header'
@@ -16,25 +17,29 @@ export default function App() {
   const [submittedForm, setSubmittedForm] = useState(null)
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <Header
-        businessName={merchant.businessName}
-        subtitle={merchant.subtitle}
-        minimal={Boolean(submittedForm)}
-      />
+    <div className="relative min-h-screen overflow-x-hidden">
+      <CosmicBackground />
 
-      <main className="mx-auto w-full max-w-xl flex-1 px-5 py-6 sm:px-6">
-        {submittedForm ? (
-          <SuccessScreen form={submittedForm} merchant={merchant} />
-        ) : (
-          <div className="space-y-5">
-            <CutoffBanner cutoffHour={merchant.cutoffHour} passed={isPastCutoff(merchant)} />
-            <ShippingForm merchant={merchant} onSubmit={setSubmittedForm} />
-          </div>
-        )}
-      </main>
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <Header
+          businessName={merchant.businessName}
+          subtitle={merchant.subtitle}
+          minimal={Boolean(submittedForm)}
+        />
 
-      <Footer />
+        <main className="mx-auto w-full max-w-xl flex-1 px-5 py-6 sm:px-6">
+          {submittedForm ? (
+            <SuccessScreen form={submittedForm} merchant={merchant} />
+          ) : (
+            <div className="space-y-5">
+              <CutoffBanner cutoffHour={merchant.cutoffHour} passed={isPastCutoff(merchant)} />
+              <ShippingForm merchant={merchant} onSubmit={setSubmittedForm} />
+            </div>
+          )}
+        </main>
+
+        <Footer />
+      </div>
     </div>
   )
 }

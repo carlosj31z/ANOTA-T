@@ -11,7 +11,7 @@ const DELIVERY_TITLES = {
 
 function Row({ icon, children }) {
   return (
-    <p className="flex items-start gap-2 text-[13.5px] leading-relaxed text-gray-700">
+    <p className="flex items-start gap-2 text-[13.5px] leading-relaxed text-gray-300">
       <span className="mt-px shrink-0">{icon}</span>
       <span className="min-w-0 break-words">{children}</span>
     </p>
@@ -24,19 +24,19 @@ export default function SuccessScreen({ form, merchant }) {
 
   return (
     <div className="flex flex-col items-center py-4 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-600 animate-pop-in">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-400/30 animate-pop-in">
         <IconCheck className="h-8 w-8" />
       </div>
 
-      <h1 className="mt-4 text-xl font-bold text-gray-900">¡Registro Exitoso!</h1>
-      <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-gray-500">
+      <h1 className="mt-4 text-xl font-bold text-white">¡Registro Exitoso!</h1>
+      <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-gray-400">
         Tu envío ha sido programado correctamente. Verifica los datos y envíalos por chat con el botón verde.
       </p>
 
-      <div className="animate-fade-in-up mt-6 w-full space-y-2.5 rounded-2xl border border-gray-200 bg-white p-5 text-left shadow-sm">
-        <p className="text-[11px] font-bold tracking-wide text-gray-400 uppercase">Resumen</p>
+      <div className="animate-fade-in-up mt-6 w-full space-y-2.5 rounded-2xl border border-white/10 bg-white/5 p-5 text-left shadow-xl shadow-black/30 backdrop-blur-sm">
+        <p className="text-[11px] font-bold tracking-wide text-gray-500 uppercase">Resumen</p>
 
-        <p className="text-sm font-bold text-gray-900">
+        <p className="text-sm font-bold text-white">
           📦 {DELIVERY_TITLES[form.deliveryMethod] ?? 'Nuevo pedido'}
         </p>
 
@@ -72,14 +72,14 @@ export default function SuccessScreen({ form, merchant }) {
         </div>
 
         {(form.courier || form.shippingDate) && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 pt-2.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/10 pt-2.5">
             {form.courier && (
-              <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-gray-800">
+              <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-gray-200">
                 🚚 {COURIERS[form.courier]?.label ?? form.courier}
               </span>
             )}
             {form.shippingDate && (
-              <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-gray-800">
+              <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-gray-200">
                 📅 {form.shippingDate.shortLabel}
               </span>
             )}
@@ -91,7 +91,7 @@ export default function SuccessScreen({ form, merchant }) {
         href={whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 py-3.5 text-[15px] font-bold text-white shadow-sm shadow-green-200 transition hover:bg-green-600 active:scale-[0.99]"
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_30px_-8px_rgba(16,185,129,0.55)] transition hover:bg-emerald-400 active:scale-[0.99]"
       >
         Enviar por WhatsApp
         <IconWhatsapp className="h-5 w-5" />

@@ -5,7 +5,7 @@
 export const MERCHANTS = {
   'march-usa': {
     id: 'march-usa',
-    businessName: 'MARCH U.S.A',
+    businessName: 'ANOTATE',
     subtitle: 'Formulario de Envío',
     whatsappNumber: '51987654321',
     cutoffHour: 14,

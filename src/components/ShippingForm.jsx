@@ -18,16 +18,16 @@ const DELIVERY_OPTIONS = [
 
 function FieldLabel({ children, required }) {
   return (
-    <label className="mb-1.5 block text-sm font-semibold text-gray-800">
+    <label className="mb-1.5 block text-sm font-semibold text-gray-200">
       {children}
-      {required && <span className="text-red-500"> *</span>}
+      {required && <span className="text-red-400"> *</span>}
     </label>
   )
 }
 
 function FieldError({ message }) {
   if (!message) return null
-  return <p className="mt-1 text-xs text-red-500">{message}</p>
+  return <p className="mt-1 text-xs text-red-400">{message}</p>
 }
 
 function TextField({ label, required, value, onChange, onBlur, error, placeholder, prefix, ...rest }) {
@@ -35,17 +35,19 @@ function TextField({ label, required, value, onChange, onBlur, error, placeholde
     <div>
       <FieldLabel required={required}>{label}</FieldLabel>
       <div
-        className={`flex items-center gap-2 rounded-xl border bg-gray-50 px-3.5 py-3 transition ${
-          error ? 'border-red-300' : 'border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'
+        className={`flex items-center gap-2 rounded-xl border bg-white/5 px-3.5 py-3 backdrop-blur-sm transition ${
+          error
+            ? 'border-red-400/60'
+            : 'border-white/10 focus-within:border-amber-400/70 focus-within:ring-2 focus-within:ring-amber-400/20'
         }`}
       >
-        {prefix && <span className="font-semibold text-gray-400">{prefix}</span>}
+        {prefix && <span className="font-semibold text-gray-500">{prefix}</span>}
         <input
           value={value}
           onChange={onChange}
           onBlur={onBlur}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-gray-900 placeholder:text-gray-300 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-[15px] text-white placeholder:text-gray-500 focus:outline-none"
           {...rest}
         />
       </div>
@@ -59,8 +61,10 @@ function SelectField({ label, required, value, onChange, onBlur, error, placehol
     <div>
       <FieldLabel required={required}>{label}</FieldLabel>
       <div
-        className={`relative rounded-xl border bg-gray-50 transition ${
-          error ? 'border-red-300' : 'border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'
+        className={`relative rounded-xl border bg-white/5 backdrop-blur-sm transition ${
+          error
+            ? 'border-red-400/60'
+            : 'border-white/10 focus-within:border-amber-400/70 focus-within:ring-2 focus-within:ring-amber-400/20'
         }`}
       >
         <select
@@ -68,17 +72,19 @@ function SelectField({ label, required, value, onChange, onBlur, error, placehol
           onChange={onChange}
           onBlur={onBlur}
           className={`w-full appearance-none bg-transparent px-3.5 py-3 pr-10 text-[15px] focus:outline-none ${
-            value ? 'text-gray-900' : 'text-gray-400'
+            value ? 'text-white' : 'text-gray-500'
           }`}
         >
-          <option value="">{placeholder}</option>
+          <option value="" className="bg-gray-900 text-gray-400">
+            {placeholder}
+          </option>
           {options.map((o) => (
-            <option key={o.value} value={o.value}>
+            <option key={o.value} value={o.value} className="bg-gray-900 text-white">
               {o.label}
             </option>
           ))}
         </select>
-        <Icon className="pointer-events-none absolute right-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-gray-400" />
+        <Icon className="pointer-events-none absolute right-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-gray-500" />
       </div>
       <FieldError message={error} />
     </div>
@@ -356,7 +362,7 @@ export default function ShippingForm({ merchant, onSubmit }) {
 
       <button
         type="submit"
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-[15px] font-bold text-white shadow-sm shadow-blue-200 transition hover:bg-blue-700 active:scale-[0.99]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_30px_-8px_rgba(249,115,22,0.6)] transition hover:from-amber-400 hover:to-orange-500 active:scale-[0.99]"
       >
         Agendar y ver resumen
         <IconCalendar className="h-5 w-5" />

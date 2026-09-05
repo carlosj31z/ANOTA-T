@@ -4,6 +4,10 @@
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
+:root {
+  color-scheme: dark;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -11,8 +15,8 @@ html {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: #f4f6fb;
-  color: #16182b;
+  background: #05050d;
+  color: #e5e7eb;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -31,11 +35,59 @@ input, select, textarea {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* --- Cosmic background (asteroid field) --- */
+
+.cosmic-stars {
+  background-image:
+    radial-gradient(1.6px 1.6px at 20px 30px, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 90px 80px, #fff, transparent),
+    radial-gradient(1px 1px at 130px 40px, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 160px 120px, #fff, transparent),
+    radial-gradient(1px 1px at 50px 140px, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 180px 20px, #fff, transparent);
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  animation: twinkle 7s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.75; }
+}
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(26px, -22px) scale(1.08); }
+}
+
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-24px, 24px) scale(1.06); }
+}
+
+@keyframes drift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(14px, 16px) scale(0.94); opacity: 1; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cosmic-stars,
+  .cosmic-orb,
+  .cosmic-asteroid {
+    animation: none !important;
+  }
 }
 
 @keyframes fade-in-up {
