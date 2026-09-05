@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+## Idioma
+
+Responder siempre en español al usuario en esta sesión.
+
 ## Workflow
 
 Commit and push to the current branch automatically after finishing each
