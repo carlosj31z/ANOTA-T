@@ -58,24 +58,30 @@ una API pública para ubicar agencias por geolocalización. Resultado:
   directamente desde el navegador (necesitarían un backend/proxy propio).
 
 **Solución implementada:** un directorio propio y curado en
-`src/data/agencies.js` con ~150 direcciones reales (recopiladas de las
-páginas de agencias de cada empresa y directorios públicos): Shalom con
-amplia cobertura de Lima (SJL, Los Olivos, Comas, SMP, Independencia,
-Ate, Santa Anita, VES, SJM, Callao, etc.) y de las principales ciudades
-densificadas por distrito (Arequipa, Trujillo, Cusco, Chiclayo, Piura,
-Huancayo, Tacna, etc.); Olva en ~20 departamentos con varias oficinas
-por ciudad grande; y Marvisur en el sur del país.
+`src/data/agencies.js` con ~300 direcciones reales:
+
+- **Marvisur (~170 agencias): directorio oficial 2025 completo.** Se
+  extrajo del PDF oficial "Directorio Marvisur 2025" — cobertura de
+  todos los departamentos donde opera, con dirección y referencia
+  textual de cada sucursal.
+- **Shalom (~70) y Olva (~67):** muestra amplia recopilada de las
+  páginas de agencias de cada empresa y directorios públicos, con
+  fuerte cobertura de Lima por distrito y de las principales ciudades
+  (Arequipa, Trujillo, Cusco, Chiclayo, Piura, Huancayo, Tacna, etc.).
+
 Las coordenadas son aproximadas a nivel de distrito/ciudad. El
 formulario pide permiso de geolocalización al navegador
 (`navigator.geolocation`) y ordena las agencias por distancia real
 (fórmula de Haversine, ver `src/utils/geo.js`), mostrando "~X km" junto
 a cada resultado.
 
-> Nota: sigue siendo una muestra representativa, no un espejo exhaustivo.
-> Shalom por sí solo lista 400+ agencias a nivel nacional; los sitios
-> oficiales y los agregadores (latam5s, shalom.com.pe, olvacourier.com)
-> no son accesibles por API pública ni permiten scraping desde el
-> navegador, así que el dataset se amplía manualmente por búsqueda.
+> Nota: Marvisur está al 100% de su directorio oficial. Shalom y Olva
+> siguen siendo una muestra representativa (Shalom lista 400+ agencias
+> a nivel nacional): sus sitios oficiales y los agregadores (latam5s,
+> shalom.com.pe, olvacourier.com) no exponen API pública ni permiten
+> scraping desde el navegador, así que ese dataset se amplía por
+> búsqueda. Para tenerlos completos basta con subir sus directorios
+> oficiales (PDF/CSV), igual que se hizo con Marvisur.
 
 Esto es una aproximación honesta, no una integración en vivo. Si más
 adelante consigues credenciales de Shalom Pro o de Olva, basta con
