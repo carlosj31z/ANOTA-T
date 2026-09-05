@@ -80,6 +80,15 @@ export function IconCopy({ className }) {
   )
 }
 
+export function IconTag({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M12.5 3H6a3 3 0 0 0-3 3v6.5a1 1 0 0 0 .29.7l9.5 9.5a1 1 0 0 0 1.42 0l7.5-7.5a1 1 0 0 0 0-1.42l-9.5-9.5a1 1 0 0 0-.71-.28Z" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+    </svg>
+  )
+}
+
 export function IconWhatsapp({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">

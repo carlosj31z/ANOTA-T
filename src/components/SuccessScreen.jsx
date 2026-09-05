@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { COURIERS } from '../data/agencies'
 import { PAYMENT_LABELS } from '../data/paymentMethods'
+import { downloadShippingLabel } from '../utils/label'
 import { buildWhatsAppSummary, buildWhatsAppUrl } from '../utils/whatsapp'
-import { IconCheck, IconCopy, IconWhatsapp } from './icons'
+import { IconCheck, IconCopy, IconTag, IconWhatsapp } from './icons'
 
 function copyText(text) {
   if (navigator.clipboard?.writeText) {
@@ -38,11 +39,19 @@ export default function SuccessScreen({ form, merchant }) {
   const message = buildWhatsAppSummary(form, merchant)
   const whatsappUrl = buildWhatsAppUrl(merchant.whatsappNumber, message)
   const [copied, setCopied] = useState(false)
+  const [labelSaved, setLabelSaved] = useState(false)
 
   function handleCopy() {
     copyText(message).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  function handleDownloadLabel() {
+    downloadShippingLabel(form, merchant).then(() => {
+      setLabelSaved(true)
+      setTimeout(() => setLabelSaved(false), 2000)
     })
   }
 
@@ -137,6 +146,19 @@ export default function SuccessScreen({ form, merchant }) {
         </button>
       </div>
       {copied && <p className="mt-2 text-xs font-medium text-emerald-400">Resumen copiado</p>}
+
+      <button
+        type="button"
+        onClick={handleDownloadLabel}
+        className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl border py-3 text-[14px] font-bold transition active:scale-[0.99] ${
+          labelSaved
+            ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
+            : 'border-amber-400/30 bg-amber-400/10 text-amber-300 hover:bg-amber-400/15'
+        }`}
+      >
+        {labelSaved ? 'Etiqueta descargada' : 'Descargar etiqueta para imprimir'}
+        {labelSaved ? <IconCheck className="h-4.5 w-4.5" /> : <IconTag className="h-4.5 w-4.5" />}
+      </button>
     </div>
   )
 }
