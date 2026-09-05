@@ -58,13 +58,22 @@ una API pública para ubicar agencias por geolocalización. Resultado:
   directamente desde el navegador (necesitarían un backend/proxy propio).
 
 **Solución implementada:** un directorio propio y curado en
-`src/data/agencies.js` con direcciones reales (recopiladas de las páginas
-de agencias de cada empresa) en varias ciudades del Perú — para Olva
-Courier cubre 22 de los 25 departamentos —, con coordenadas aproximadas
-a nivel de distrito/ciudad. El formulario pide
-permiso de geolocalización al navegador (`navigator.geolocation`) y
-ordena las agencias por distancia real (fórmula de Haversine, ver
-`src/utils/geo.js`), mostrando "~X km" junto a cada resultado.
+`src/data/agencies.js` con ~105 direcciones reales (recopiladas de las
+páginas de agencias de cada empresa y directorios públicos): Shalom con
+amplia cobertura de Lima (SJL, Los Olivos, Comas, SMP, Independencia,
+Ate, Santa Anita, VES, SJM, Callao, etc.) y capitales de casi todos los
+departamentos; Olva en ~20 departamentos; y Marvisur en el sur del país.
+Las coordenadas son aproximadas a nivel de distrito/ciudad. El
+formulario pide permiso de geolocalización al navegador
+(`navigator.geolocation`) y ordena las agencias por distancia real
+(fórmula de Haversine, ver `src/utils/geo.js`), mostrando "~X km" junto
+a cada resultado.
+
+> Nota: sigue siendo una muestra representativa, no un espejo exhaustivo.
+> Shalom por sí solo lista 400+ agencias a nivel nacional; los sitios
+> oficiales y los agregadores (latam5s, shalom.com.pe, olvacourier.com)
+> no son accesibles por API pública ni permiten scraping desde el
+> navegador, así que el dataset se amplía manualmente por búsqueda.
 
 Esto es una aproximación honesta, no una integración en vivo. Si más
 adelante consigues credenciales de Shalom Pro o de Olva, basta con
