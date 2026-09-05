@@ -28,6 +28,56 @@ en la siguiente carga.
 > contraseña de administrador. Para seguridad real se necesita validar
 > contra un servidor.
 
+## Panel de administrador y telemetría (anti-piratería)
+
+Al entrar como **Administrador** se abre un panel
+(`src/components/AdminDashboard.jsx`) con un registro de activaciones:
+cada vez que alguien ingresa (con serial o como admin) se registra un
+evento con dispositivo, navegador/OS, fecha y hora, zona horaria,
+idioma, **ubicación por IP** (aprox., sin permiso) y, si el usuario
+acepta el permiso del navegador, **coordenadas GPS** exactas. La lógica
+está en `src/utils/telemetry.js`.
+
+- El evento se guarda siempre en `localStorage` (visible en el panel de
+  ese dispositivo) y, si hay un **endpoint** configurado, se envía a tu
+  backend (`sendBeacon`/`fetch`, fire-and-forget).
+- El panel muestra estadísticas (activaciones, dispositivos únicos,
+  seriales usados, últimas 24 h), la tabla completa, exportación a CSV y
+  un campo para pegar la URL del endpoint.
+
+**Importante:** al ser una app estática, sin backend el panel solo ve
+las activaciones de *ese* navegador. Para vigilar a todos tus clientes
+(que es el objetivo anti-piratería) necesitas un backend que reciba los
+eventos. La forma más simple y gratis es un **Google Apps Script + Hoja
+de cálculo**:
+
+1. Crea una Hoja de cálculo en Google Sheets.
+2. Menú **Extensiones → Apps Script** y pega:
+
+   ```js
+   function doPost(e) {
+     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0]
+     const d = JSON.parse(e.postData.contents)
+     sheet.appendRow([
+       new Date(), d.type, d.serial, d.deviceId, d.browser, d.os,
+       d.deviceType, d.language, d.tz, d.ip, d.city, d.region, d.country,
+       d.isp, d.ipLat, d.ipLng, d.gpsLat, d.gpsLng, d.gpsAccuracy, d.ua,
+     ])
+     return ContentService.createTextOutput('ok')
+   }
+   ```
+
+3. **Implementar → Nueva implementación → Aplicación web**, acceso
+   "Cualquier usuario", y copia la URL `…/exec`.
+4. Pega esa URL en el panel de administrador (campo "Endpoint de
+   telemetría") y guarda. Desde ahí cada activación de tus clientes se
+   registrará en tu Hoja.
+
+> La telemetría de activación de licencias es una práctica estándar de
+> anti-piratería. La ubicación por IP es aproximada; el GPS exacto solo
+> se obtiene con el permiso del navegador (el propio navegador muestra el
+> aviso). Los datos se envían únicamente a TU endpoint.
+
 ## Cómo funciona
 
 1. La página lee `?merchant=<id>` de la URL y lo busca en

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isValidAdmin, isValidSerial, setAdminUnlocked, setUnlockedSerial } from '../utils/serial'
+import { logActivation } from '../utils/telemetry'
 import CrmIllustration from './CrmIllustration'
 import { IconArrowLeft, IconLock, IconShield, IconStore } from './icons'
 
@@ -69,6 +70,7 @@ function AdminStep({ onBack, onUnlock }) {
     e.preventDefault()
     if (isValidAdmin(user, password)) {
       setAdminUnlocked()
+      logActivation({ type: 'admin' }) // fire-and-forget
       onUnlock('admin')
     } else {
       setError(true)
@@ -139,6 +141,7 @@ function SerialStep({ onBack, onUnlock }) {
     e.preventDefault()
     if (isValidSerial(value)) {
       setUnlockedSerial(value)
+      logActivation({ type: 'serial', serial: value.trim().toUpperCase() }) // fire-and-forget
       onUnlock('merchant')
     } else {
       setError(true)

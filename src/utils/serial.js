@@ -59,3 +59,13 @@ export function getAccessRole() {
     return null
   }
 }
+
+/** Cierra la sesión de este dispositivo (vuelve a pedir rol/credenciales). */
+export function clearAccess() {
+  try {
+    localStorage.removeItem(ROLE_KEY)
+    localStorage.removeItem(SERIAL_KEY)
+  } catch {
+    // sin persistencia
+  }
+}

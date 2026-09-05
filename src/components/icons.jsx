@@ -117,6 +117,53 @@ export function IconArrowLeft({ className }) {
   )
 }
 
+export function IconChart({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M4 20V4M4 20h16" />
+      <path d="M8 16v-4M12 16V8M16 16v-6" />
+    </svg>
+  )
+}
+
+export function IconDownload({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M12 4v11m0 0 4-4m-4 4-4-4" />
+      <path d="M5 19h14" />
+    </svg>
+  )
+}
+
+export function IconRefresh({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M4 12a8 8 0 0 1 13.7-5.7L20 8" />
+      <path d="M20 4v4h-4" />
+      <path d="M20 12a8 8 0 0 1-13.7 5.7L4 16" />
+      <path d="M4 20v-4h4" />
+    </svg>
+  )
+}
+
+export function IconLogout({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+      <path d="M10 17l-5-5 5-5" />
+      <path d="M5 12h11" />
+    </svg>
+  )
+}
+
+export function IconTrash({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+    </svg>
+  )
+}
+
 export function IconTag({ className }) {
   return (
     <svg className={className} {...base()}>
