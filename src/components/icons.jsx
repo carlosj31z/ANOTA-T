@@ -63,15 +63,6 @@ export function IconCheck({ className }) {
   )
 }
 
-export function IconAlert({ className }) {
-  return (
-    <svg className={className} {...base()}>
-      <path d="M12 9v4.5M12 16.5h.01" />
-      <path d="M10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.29 2.25h17.78A1.5 1.5 0 0 0 22.18 18L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z" />
-    </svg>
-  )
-}
-
 export function IconChevronDown({ className }) {
   return (
     <svg className={className} {...base()}>

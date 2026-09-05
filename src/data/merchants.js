@@ -23,7 +23,10 @@ export const MERCHANTS = {
   },
 }
 
+const DEFAULT_MERCHANT_ID = 'march-usa'
+
+// Always resolves to a merchant so the form is usable even without a
+// (valid) `?merchant=` link, falling back to the default store.
 export function getMerchant(merchantId) {
-  if (!merchantId) return null
-  return MERCHANTS[merchantId] ?? null
+  return MERCHANTS[merchantId] ?? MERCHANTS[DEFAULT_MERCHANT_ID]
 }

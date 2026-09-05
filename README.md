@@ -8,8 +8,9 @@ resumen por WhatsApp.
 ## Cómo funciona
 
 1. La página lee `?merchant=<id>` de la URL y lo busca en
-   `src/data/merchants.js`. Si no existe o falta el parámetro, se muestra
-   una pantalla de "Enlace no válido".
+   `src/data/merchants.js`. Si no existe o falta el parámetro, se usa la
+   tienda por defecto (`march-usa`) — el formulario siempre es usable, con
+   o sin ese parámetro.
 2. Se muestra un banner con la hora de corte del merchant. Si ya pasó la
    hora de corte de hoy, la primera fecha de envío disponible salta al
    siguiente día hábil.

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import CutoffBanner from './components/CutoffBanner'
-import ErrorScreen from './components/ErrorScreen'
 import Footer from './components/Footer'
 import Header from './components/Header'
 import ShippingForm from './components/ShippingForm'
@@ -15,10 +14,6 @@ export default function App() {
   }, [])
 
   const [submittedForm, setSubmittedForm] = useState(null)
-
-  if (!merchant) {
-    return <ErrorScreen />
-  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
