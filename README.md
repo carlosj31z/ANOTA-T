@@ -11,10 +11,10 @@ resumen por WhatsApp.
    `src/data/merchants.js`. Si no existe o falta el parámetro, se usa la
    tienda por defecto (`march-usa`) — el formulario siempre es usable, con
    o sin ese parámetro.
-2. Se muestra un banner con la hora de corte del merchant. Las fechas de
-   envío se calculan cada `shippingIntervalDays` días (por defecto 2) a
-   partir de la fecha del dispositivo del cliente; si ya pasó la hora de
-   corte de hoy, todo el calendario se corre un día más.
+2. Las fechas de envío se calculan cada `shippingIntervalDays` días (por
+   defecto 2) a partir de la fecha del dispositivo del cliente; si ya
+   pasó la hora de corte (`cutoffHour`) de hoy, todo el calendario se
+   corre un día más.
 3. El cliente elige cómo quiere recibir su pedido:
    - **Retiro en tienda** — solo nombre y fecha.
    - **Envío a domicilio** — dirección, departamento, provincia/distrito,

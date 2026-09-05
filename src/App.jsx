@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react'
 import CosmicBackground from './components/CosmicBackground'
-import CutoffBanner from './components/CutoffBanner'
 import Footer from './components/Footer'
 import Header from './components/Header'
 import ShippingForm from './components/ShippingForm'
 import SuccessScreen from './components/SuccessScreen'
 import { getMerchant } from './data/merchants'
-import { isPastCutoff } from './utils/dates'
 
 export default function App() {
   const merchant = useMemo(() => {
@@ -31,10 +29,7 @@ export default function App() {
           {submittedForm ? (
             <SuccessScreen form={submittedForm} merchant={merchant} />
           ) : (
-            <div className="space-y-5">
-              <CutoffBanner cutoffHour={merchant.cutoffHour} passed={isPastCutoff(merchant)} />
-              <ShippingForm merchant={merchant} onSubmit={setSubmittedForm} />
-            </div>
+            <ShippingForm merchant={merchant} onSubmit={setSubmittedForm} />
           )}
         </main>
 

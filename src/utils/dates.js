@@ -30,9 +30,3 @@ export function generateAvailableDates(merchant, now = new Date()) {
   }
   return results
 }
-
-export function formatCutoffHour(hour) {
-  const h = hour % 12 === 0 ? 12 : hour % 12
-  const suffix = hour >= 12 ? 'PM' : 'AM'
-  return `${h}:00 ${suffix}`
-}
