@@ -58,11 +58,13 @@ una API pública para ubicar agencias por geolocalización. Resultado:
   directamente desde el navegador (necesitarían un backend/proxy propio).
 
 **Solución implementada:** un directorio propio y curado en
-`src/data/agencies.js` con ~105 direcciones reales (recopiladas de las
+`src/data/agencies.js` con ~150 direcciones reales (recopiladas de las
 páginas de agencias de cada empresa y directorios públicos): Shalom con
 amplia cobertura de Lima (SJL, Los Olivos, Comas, SMP, Independencia,
-Ate, Santa Anita, VES, SJM, Callao, etc.) y capitales de casi todos los
-departamentos; Olva en ~20 departamentos; y Marvisur en el sur del país.
+Ate, Santa Anita, VES, SJM, Callao, etc.) y de las principales ciudades
+densificadas por distrito (Arequipa, Trujillo, Cusco, Chiclayo, Piura,
+Huancayo, Tacna, etc.); Olva en ~20 departamentos con varias oficinas
+por ciudad grande; y Marvisur en el sur del país.
 Las coordenadas son aproximadas a nivel de distrito/ciudad. El
 formulario pide permiso de geolocalización al navegador
 (`navigator.geolocation`) y ordena las agencias por distancia real
