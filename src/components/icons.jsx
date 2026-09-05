@@ -71,6 +71,15 @@ export function IconChevronDown({ className }) {
   )
 }
 
+export function IconCopy({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <rect x="8.5" y="8.5" width="12" height="12" rx="2.5" />
+      <path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5" />
+    </svg>
+  )
+}
+
 export function IconWhatsapp({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">

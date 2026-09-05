@@ -1,7 +1,23 @@
+import { useState } from 'react'
 import { COURIERS } from '../data/agencies'
 import { PAYMENT_LABELS } from '../data/paymentMethods'
 import { buildWhatsAppSummary, buildWhatsAppUrl } from '../utils/whatsapp'
-import { IconCheck, IconWhatsapp } from './icons'
+import { IconCheck, IconCopy, IconWhatsapp } from './icons'
+
+function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text)
+  }
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+  return Promise.resolve()
+}
 
 const DELIVERY_TITLES = {
   store: 'Recojo en tienda',
@@ -21,6 +37,14 @@ function Row({ icon, children }) {
 export default function SuccessScreen({ form, merchant }) {
   const message = buildWhatsAppSummary(form, merchant)
   const whatsappUrl = buildWhatsAppUrl(merchant.whatsappNumber, message)
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    copyText(message).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
     <div className="flex flex-col items-center py-4 text-center">
@@ -87,15 +111,32 @@ export default function SuccessScreen({ form, merchant }) {
         )}
       </div>
 
-      <a
-        href={whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_30px_-8px_rgba(16,185,129,0.55)] transition hover:bg-emerald-400 active:scale-[0.99]"
-      >
-        Enviar por WhatsApp
-        <IconWhatsapp className="h-5 w-5" />
-      </a>
+      <div className="mt-6 flex w-full items-stretch gap-2.5">
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-[15px] font-bold text-white shadow-[0_8px_30px_-8px_rgba(16,185,129,0.55)] transition hover:bg-emerald-400 active:scale-[0.99]"
+        >
+          Enviar por WhatsApp
+          <IconWhatsapp className="h-5 w-5" />
+        </a>
+
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label="Copiar resumen al portapapeles"
+          title="Copiar resumen"
+          className={`flex w-14 shrink-0 items-center justify-center rounded-xl border transition active:scale-[0.97] ${
+            copied
+              ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400'
+              : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white'
+          }`}
+        >
+          {copied ? <IconCheck className="h-5 w-5" /> : <IconCopy className="h-5 w-5" />}
+        </button>
+      </div>
+      {copied && <p className="mt-2 text-xs font-medium text-emerald-400">Resumen copiado</p>}
     </div>
   )
 }
