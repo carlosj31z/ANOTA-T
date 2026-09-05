@@ -5,6 +5,19 @@ React + Vite + Tailwind CSS. Cada tienda comparte un enlace con
 `?merchant=<id>`; el cliente completa sus datos y termina enviando el
 resumen por WhatsApp.
 
+## Portal de acceso (serial)
+
+Antes de mostrar cualquier contenido, la app pide un serial ("Ingrese
+serial para desbloquear todas las funciones"). Solo los códigos listados
+en `src/data/serials.js` desbloquean el formulario; cualquier otro valor
+muestra un error y no deja avanzar. Una vez validado, el serial se
+guarda en `localStorage` para no volver a pedirlo en ese dispositivo —
+si luego quitas ese código de la lista, se vuelve a bloquear en la
+siguiente carga. Es una barrera del lado del cliente (no hay backend
+que la respalde), pensada para repartir acceso por código, no como
+seguridad real: cualquiera con acceso al código fuente puede leer la
+lista de seriales o desactivar la verificación.
+
 ## Cómo funciona
 
 1. La página lee `?merchant=<id>` de la URL y lo busca en
