@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
+import AccessGate from './components/AccessGate'
 import CosmicBackground from './components/CosmicBackground'
 import Footer from './components/Footer'
 import Header from './components/Header'
-import SerialGate from './components/SerialGate'
 import ShippingForm from './components/ShippingForm'
 import SuccessScreen from './components/SuccessScreen'
 import { getMerchant } from './data/merchants'
-import { getUnlockedSerial } from './utils/serial'
+import { getAccessRole } from './utils/serial'
 
 export default function App() {
   const merchant = useMemo(() => {
@@ -15,14 +15,14 @@ export default function App() {
   }, [])
 
   const [submittedForm, setSubmittedForm] = useState(null)
-  const [unlocked, setUnlocked] = useState(() => Boolean(getUnlockedSerial()))
+  const [role, setRole] = useState(() => getAccessRole())
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <CosmicBackground />
 
-      {!unlocked ? (
-        <SerialGate onUnlock={() => setUnlocked(true)} />
+      {!role ? (
+        <AccessGate onUnlock={setRole} />
       ) : (
         <div className="relative z-10 flex min-h-screen flex-col">
           <Header

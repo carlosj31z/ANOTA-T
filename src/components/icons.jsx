@@ -90,6 +90,33 @@ export function IconLock({ className }) {
   )
 }
 
+export function IconShield({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M12 3 5 6v5.5c0 4.3 2.9 7.7 7 9 4.1-1.3 7-4.7 7-9V6l-7-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
+}
+
+export function IconStore({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M4 9.5 5.2 4.5A1 1 0 0 1 6.17 3.75h11.66a1 1 0 0 1 .97.75L20 9.5" />
+      <path d="M4 9.5h16v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-4 0v-2Z" />
+      <path d="M5 13.5V20h14v-6.5" />
+    </svg>
+  )
+}
+
+export function IconArrowLeft({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
 export function IconTag({ className }) {
   return (
     <svg className={className} {...base()}>

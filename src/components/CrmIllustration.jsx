@@ -2,7 +2,7 @@
 // proyectando sobre fichas de contacto, una laptop con dashboard y
 // carpetas archivándose. Recreada con la paleta ámbar/cian/fucsia del
 // tema cósmico de la app (no es la imagen original del usuario, ver
-// SerialGate.jsx).
+// AccessGate.jsx).
 export default function CrmIllustration({ className }) {
   return (
     <svg viewBox="0 0 520 380" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">

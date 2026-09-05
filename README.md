@@ -5,18 +5,28 @@ React + Vite + Tailwind CSS. Cada tienda comparte un enlace con
 `?merchant=<id>`; el cliente completa sus datos y termina enviando el
 resumen por WhatsApp.
 
-## Portal de acceso (serial)
+## Portal de acceso (rol: administrador / negociante)
 
-Antes de mostrar cualquier contenido, la app pide un serial ("Ingrese
-serial para desbloquear todas las funciones"). Solo los códigos listados
-en `src/data/serials.js` desbloquean el formulario; cualquier otro valor
-muestra un error y no deja avanzar. Una vez validado, el serial se
-guarda en `localStorage` para no volver a pedirlo en ese dispositivo —
-si luego quitas ese código de la lista, se vuelve a bloquear en la
-siguiente carga. Es una barrera del lado del cliente (no hay backend
-que la respalde), pensada para repartir acceso por código, no como
-seguridad real: cualquiera con acceso al código fuente puede leer la
-lista de seriales o desactivar la verificación.
+Antes de mostrar cualquier contenido, la app abre una ventana de acceso
+(`src/components/AccessGate.jsx`) que pregunta **¿Cómo deseas ingresar?**
+con dos opciones:
+
+- **Administrador** → pide usuario y contraseña. Las credenciales están
+  en `src/utils/serial.js` (`ADMIN_USER` / `ADMIN_PASSWORD`).
+- **Negociante** → pide una clave serial. Solo los códigos listados en
+  `src/data/serials.js` desbloquean el formulario; cualquier otro valor
+  muestra un error y no deja avanzar.
+
+Al validar (admin o serial), el rol se guarda en `localStorage`
+(`anotate-access-role`) para no volver a pedirlo en ese dispositivo — si
+luego quitas un serial de la lista, ese dispositivo se vuelve a bloquear
+en la siguiente carga.
+
+> Es una barrera del lado del cliente (no hay backend que la respalde),
+> pensada para repartir acceso por código/credencial, no como seguridad
+> real: cualquiera que inspeccione el bundle puede leer los seriales y la
+> contraseña de administrador. Para seguridad real se necesita validar
+> contra un servidor.
 
 ## Cómo funciona
 
