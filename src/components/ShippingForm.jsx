@@ -56,7 +56,18 @@ function TextField({ label, required, value, onChange, onBlur, error, placeholde
   )
 }
 
-function SelectField({ label, required, value, onChange, onBlur, error, placeholder, options, icon: Icon = IconChevronDown }) {
+function SelectField({
+  label,
+  required,
+  value,
+  onChange,
+  onBlur,
+  error,
+  placeholder,
+  options,
+  icon: Icon = IconChevronDown,
+  hint,
+}) {
   return (
     <div>
       <FieldLabel required={required}>{label}</FieldLabel>
@@ -86,6 +97,7 @@ function SelectField({ label, required, value, onChange, onBlur, error, placehol
         </select>
         <Icon className="pointer-events-none absolute right-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-gray-500" />
       </div>
+      {hint && <p className="mt-1.5 text-xs text-gray-500">{hint}</p>}
       <FieldError message={error} />
     </div>
   )
@@ -348,6 +360,7 @@ export default function ShippingForm({ merchant, onSubmit }) {
             required
             placeholder="Elige una fecha…"
             icon={IconCalendar}
+            hint="(El envío puede estar en 24 a 48 horas, consulta siempre la página web del establecimiento)"
             value={form.shippingDate?.value ?? ''}
             onChange={(e) => {
               const picked = availableDates.find((d) => d.value === e.target.value) ?? null

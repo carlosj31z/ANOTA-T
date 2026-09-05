@@ -9,7 +9,7 @@ export const MERCHANTS = {
     subtitle: 'Formulario de Envío',
     whatsappNumber: '51987654321',
     cutoffHour: 14,
-    shippingWeekdays: [5, 6], // viernes y sábado
+    shippingIntervalDays: 2, // una fecha disponible cada 2 días
     weeksAhead: 2,
   },
   u_uybpvkf4A: {
@@ -18,7 +18,7 @@ export const MERCHANTS = {
     subtitle: 'Formulario de Envío',
     whatsappNumber: '51900000000',
     cutoffHour: 14,
-    shippingWeekdays: [1, 2, 3, 4, 5],
+    shippingIntervalDays: 2,
     weeksAhead: 1,
   },
 }

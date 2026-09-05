@@ -7,19 +7,21 @@ export function isPastCutoff(merchant, now = new Date()) {
   return now.getHours() >= merchant.cutoffHour
 }
 
-/** Next available shipping dates honoring the merchant's allowed weekdays and cutoff. */
+/**
+ * Next available shipping dates, cada N días (por defecto 2) contados desde
+ * la fecha del dispositivo (`now`), no desde días de semana fijos. Si ya
+ * pasó la hora de corte de hoy, todo el calendario se corre un día más.
+ */
 export function generateAvailableDates(merchant, now = new Date()) {
-  const weekdays = merchant.shippingWeekdays?.length ? merchant.shippingWeekdays : [1, 2, 3, 4, 5, 6]
+  const intervalDays = merchant.shippingIntervalDays ?? 2
   const totalDays = (merchant.weeksAhead ?? 2) * 7
-  const past = isPastCutoff(merchant, now)
+  const startOffset = intervalDays + (isPastCutoff(merchant, now) ? 1 : 0)
   const results = []
 
-  for (let i = 0; i <= totalDays; i++) {
-    if (i === 0 && past) continue
+  for (let offset = startOffset; offset <= totalDays; offset += intervalDays) {
     const d = new Date(now)
     d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() + i)
-    if (!weekdays.includes(d.getDay())) continue
+    d.setDate(d.getDate() + offset)
     results.push({
       value: d.toISOString().slice(0, 10),
       label: `${WEEKDAY_LABELS[d.getDay()]} ${d.getDate()} ${MONTH_LABELS[d.getMonth()]}`,
