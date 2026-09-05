@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Import Global — Importaciones Premium desde EEUU</title>
+    <meta name="description" content="Importaciones directas desde EEUU: iPhone, MacBook, Xiaomi, Google Pixel y smartwatches originales, con garantía y envíos a todo el Perú. Cotiza por WhatsApp.">
+    <meta name="theme-color" content="#050505">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Nexus Import Global — Importaciones Premium desde EEUU">
+    <meta property="og:description" content="iPhone, MacBook, Xiaomi, Google Pixel y smartwatches originales, importados directo desde EEUU con garantía. Cotiza por WhatsApp.">
+    <meta property="og:image" content="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhdlOre_78-7mL0ZWH7Ll6C776cTj8fhHGhY3E1MqjK6iLuMXkgWe3Y_sPihp1XlEaRVh1YhaEpo05Rzhrkhb6vhnhC_Mk-60uGDri50L051rFD3s4HxFSnOg9uJXrll_FpFunyevc5DKOPAE9nyDN1p81-hUIrRdmD9fpmQdsObyM2pCP-Q781C27wXq4/s1024/foto.jpg">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://blogger.googleusercontent.com">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-900-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/space-grotesk@latest/latin-400-normal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/fonts/space-grotesk@latest/latin-700-normal.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+
+        :root {
+            --bg: #050505;
+            --bg2: #0a0a0a;
+            --text: #f5f0e8;
+            --accent: #c8ff00;
+            --accent2: #00e5ff;
+            --muted: #666;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .font-grotesk { font-family: 'Space Grotesk', sans-serif; }
+
+        .cursor-dot {
+            position: fixed; width: 8px; height: 8px;
+            background: var(--accent); border-radius: 50%;
+            pointer-events: none; z-index: 99999;
+            mix-blend-mode: difference;
+        }
+        .cursor-ring {
+            position: fixed; width: 40px; height: 40px;
+            border: 1.5px solid var(--accent); border-radius: 50%;
+            pointer-events: none; z-index: 99998;
+            transition: width 0.3s, height 0.3s, border-color 0.3s, background 0.3s;
+            mix-blend-mode: difference;
+        }
+        .cursor-ring.hover {
+            width: 70px; height: 70px;
+            background: rgba(200, 255, 0, 0.08);
+        }
+
+        .noise-overlay {
+            position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .loader {
+            position: fixed; inset: 0; background: var(--bg);
+            z-index: 100000; display: flex; align-items: center;
+            justify-content: center; flex-direction: column; gap: 20px;
+        }
+        .loader-count {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 5rem; font-weight: 700; color: var(--accent);
+        }
+        .loader-bar {
+            width: 200px; height: 2px; background: rgba(255,255,255,0.1);
+            border-radius: 2px; overflow: hidden;
+        }
+        .loader-bar-fill {
+            width: 0%; height: 100%; background: var(--accent);
+        }
+        .loader-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.9rem; letter-spacing: 6px; text-transform: uppercase;
+        }
+
+        .nav-bar {
+            position: fixed; top: 0; left: 0; width: 100%;
+            padding: 24px 48px; display: flex; justify-content: space-between;
+            align-items: center; z-index: 1000;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.9), transparent);
+            backdrop-filter: blur(10px);
+        }
+        .nav-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700; font-size: 1.3rem; letter-spacing: -0.5px;
+        }
+        .nav-logo span { color: var(--accent); }
+        .nav-links { display: flex; gap: 32px; list-style: none; }
+        .nav-links a {
+            color: var(--text); text-decoration: none; font-size: 0.82rem;
+            letter-spacing: 1.5px; text-transform: uppercase; position: relative;
+            padding-bottom: 4px;
+        }
+        .nav-links a::after {
+            content: ''; position: absolute; bottom: 0; left: 0;
+            width: 0; height: 1px; background: var(--accent);
+            transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .nav-links a:hover::after { width: 100%; }
+
+        .nav-cta {
+            padding: 10px 24px; border: 1px solid var(--accent);
+            border-radius: 100px; color: var(--accent); text-decoration: none;
+            font-size: 0.8rem; letter-spacing: 1.5px; text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        .nav-cta:hover { background: var(--accent); color: var(--bg); }
+
+        .hero {
+            min-height: 100vh; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            position: relative; overflow: hidden; padding: 120px 40px 80px;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 8px 20px; border: 1px solid rgba(200,255,0,0.2);
+            border-radius: 100px; font-size: 0.75rem; letter-spacing: 2px;
+            text-transform: uppercase; color: var(--accent); margin-bottom: 32px;
+            overflow: hidden;
+        }
+        .hero-badge .pulse {
+            width: 8px; height: 8px; background: var(--accent);
+            border-radius: 50%; animation: pulse 2s ease infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.5); }
+        }
+
+        .hero-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(3.5rem, 11vw, 11rem);
+            font-weight: 700; line-height: 0.9; text-align: center;
+            letter-spacing: -4px; position: relative;
+            z-index: 10; /* Ensure text is above image */
+        }
+        .hero-title .line { display: block; overflow: hidden; }
+        .hero-title .line span { display: inline-block; transform: translateY(110%); }
+        .hero-title .accent { color: var(--accent); font-style: italic; }
+        .hero-title .outline-text {
+            -webkit-text-stroke: 1.5px var(--text); color: transparent;
+        }
+
+        .hero-subtitle {
+            margin-top: 40px; font-size: 1.05rem; letter-spacing: 2px;
+            text-transform: uppercase; color: var(--muted); text-align: center;
+            max-width: 600px; overflow: hidden;
+            z-index: 10;
+        }
+        .hero-subtitle span { display: inline-block; transform: translateY(100%); }
+
+        .hero-actions {
+            margin-top: 48px; display: flex; gap: 20px; flex-wrap: wrap;
+            justify-content: center;
+            z-index: 10;
+        }
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 12px;
+            padding: 18px 40px; background: var(--accent); color: var(--bg);
+            border-radius: 100px; text-decoration: none; font-weight: 700;
+            font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase;
+            transition: all 0.4s; position: relative; overflow: hidden;
+        }
+        .btn-primary::before {
+            content: ''; position: absolute; inset: 0;
+            background: var(--text); transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .btn-primary:hover::before { transform: translateY(0); }
+        .btn-primary span { position: relative; z-index: 1; }
+
+        .btn-outline {
+            display: inline-flex; align-items: center; gap: 12px;
+            padding: 18px 40px; border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text); border-radius: 100px; text-decoration: none;
+            font-weight: 700; font-size: 0.9rem; letter-spacing: 1px;
+            text-transform: uppercase; transition: all 0.4s;
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+        .hero-scroll {
+            position: absolute; bottom: 40px; left: 50%;
+            transform: translateX(-50%); display: flex; flex-direction: column;
+            align-items: center; gap: 8px; opacity: 0;
+            z-index: 10;
+        }
+        .hero-scroll .line-scroll {
+            width: 1px; height: 60px;
+            background: linear-gradient(to bottom, var(--accent), transparent);
+            animation: scrollLine 2s ease-in-out infinite;
+        }
+        @keyframes scrollLine {
+            0%, 100% { transform: scaleY(0); transform-origin: top; }
+            50% { transform: scaleY(1); transform-origin: top; }
+            51% { transform-origin: bottom; }
+        }
+
+        .hero-bg-grid {
+            position: absolute; inset: 0; opacity: 0.04;
+            background-image:
+                linear-gradient(rgba(200,255,0,0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(200,255,0,0.3) 1px, transparent 1px);
+            background-size: 80px 80px;
+            z-index: 1;
+        }
+
+        .hero-glow {
+            position: absolute; width: 600px; height: 600px;
+            border-radius: 50%; filter: blur(80px); pointer-events: none;
+            z-index: 2;
+        }
+        .hero-glow-1 {
+            background: radial-gradient(circle, rgba(200,255,0,0.12), transparent 70%);
+            top: 10%; right: -10%;
+        }
+        .hero-glow-2 {
+            background: radial-gradient(circle, rgba(0,229,255,0.08), transparent 70%);
+            bottom: 10%; left: -10%;
+        }
+
+        .hero-circles {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+        .hero-circle {
+            position: absolute; border-radius: 50%;
+            border: 1px solid rgba(200,255,0,0.06);
+            top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+        }
+        .hero-circle:nth-child(1) { width: 500px; height: 500px; }
+        .hero-circle:nth-child(2) { width: 700px; height: 700px; }
+        .hero-circle:nth-child(3) { width: 900px; height: 900px; }
+
+        /* Hero Decorative Image - Top Right */
+        .hero-deco-img {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 600px;
+            height: auto;
+            opacity: 0;
+            z-index: 3; /* Lower than text (10) but above background */
+            pointer-events: none;
+            /* Increased transparency as requested (80% more transparent means very low opacity) */
+            filter: brightness(1.2) contrast(0.8);
+        }
+        .hero-deco-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            /* Applying the requested transparency via CSS opacity */
+            opacity: 0.15;
+            filter: drop-shadow(0 0 30px rgba(200,255,0,0.1));
+        }
+
+        .marquee-section {
+            padding: 32px 0; border-top: 1px solid rgba(255,255,255,0.06);
+            border-bottom: 1px solid rgba(255,255,255,0.06); overflow: hidden;
+        }
+        .marquee-track {
+            display: flex; gap: 48px; animation: marquee 25s linear infinite;
+            width: max-content;
+        }
+        .marquee-track span {
+            font-family: 'Space Grotesk', sans-serif; font-size: 1rem;
+            text-transform: uppercase; letter-spacing: 4px; color: var(--muted);
+            white-space: nowrap; display: flex; align-items: center; gap: 48px;
+        }
+        .marquee-track .dot { color: var(--accent); font-size: 0.5rem; }
+        .marquee-track .brand-logo {
+            font-size: 1.4rem; font-weight: 700; color: var(--text);
+            letter-spacing: 2px;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .brands-section {
+            padding: 140px 48px; max-width: 1400px; margin: 0 auto;
+        }
+        .section-header {
+            display: flex; justify-content: space-between; align-items: flex-end;
+            margin-bottom: 80px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding-bottom: 40px; flex-wrap: wrap; gap: 20px;
+        }
+        .section-label {
+            font-size: 0.75rem; letter-spacing: 3px; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 16px;
+        }
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 700;
+            letter-spacing: -2px; line-height: 1;
+        }
+        .section-count {
+            font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .brands-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+        }
+        .brand-card {
+            position: relative; overflow: hidden; border-radius: 16px;
+            background: var(--bg2); border: 1px solid rgba(255,255,255,0.05);
+            aspect-ratio: 1/1; transition: all 0.5s;
+        }
+        .brand-card.large {
+            grid-column: span 2; grid-row: span 2; aspect-ratio: auto;
+        }
+        .brand-card:hover {
+            border-color: rgba(200,255,0,0.3);
+            transform: translateY(-5px);
+        }
+        .brand-card img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.6s;
+            filter: grayscale(50%) brightness(0.6);
+        }
+        .brand-card:hover img {
+            transform: scale(1.06);
+            filter: grayscale(0%) brightness(0.9);
+        }
+        .brand-card-content {
+            position: absolute; inset: 0; padding: 32px;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%);
+        }
+        .brand-card-tag {
+            font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 8px;
+        }
+        .brand-card-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px;
+        }
+        .brand-card.large .brand-card-name { font-size: 2.8rem; }
+        .brand-card-desc {
+            font-size: 0.85rem; color: var(--muted); margin-top: 8px;
+            line-height: 1.5;
+        }
+        .brand-card-arrow {
+            position: absolute; top: 24px; right: 24px; width: 48px; height: 48px;
+            border-radius: 50%; border: 1px solid rgba(255,255,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; transform: translate(20px, -20px); opacity: 0;
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .brand-card:hover .brand-card-arrow {
+            transform: translate(0, 0); opacity: 1;
+            border-color: var(--accent); color: var(--accent);
+        }
+
+        .products-section {
+            padding: 140px 48px; max-width: 1400px; margin: 0 auto;
+        }
+
+        /* Updated Products Grid for larger images */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            justify-content: center;
+        }
+
+        .product-card {
+            background: var(--bg2);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.4s;
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* Max width constraint */
+            margin: 0 auto;
+        }
+        .product-card:hover {
+            border-color: rgba(200,255,0,0.2);
+            transform: translateY(-8px);
+        }
+        .product-img {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            display: block;
+            object-fit: cover;
+            filter: grayscale(30%);
+            transition: filter 0.4s;
+        }
+        .product-card:hover .product-img { filter: grayscale(0%); }
+        .product-body { padding: 24px; }
+        .product-brand {
+            font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 8px;
+        }
+        .product-name {
+            font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem;
+            font-weight: 700; margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .product-price {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .product-price-val {
+            font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem;
+            font-weight: 700; color: var(--accent);
+        }
+        .product-badge {
+            font-size: 0.6rem; padding: 4px 10px; border-radius: 100px;
+            background: rgba(200,255,0,0.1); color: var(--accent);
+            letter-spacing: 1px; text-transform: uppercase;
+        }
+
+        .services-section {
+            padding: 140px 48px; max-width: 1400px; margin: 0 auto;
+        }
+        .service-list { margin-top: 60px; }
+        .service-item {
+            display: grid; grid-template-columns: 60px 1fr 1.2fr 40px;
+            gap: 40px; align-items: center; padding: 40px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            transition: all 0.4s; position: relative;
+        }
+        .service-item::before {
+            content: ''; position: absolute; left: 0; bottom: 0;
+            width: 0; height: 1px; background: var(--accent);
+            transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .service-item:hover::before { width: 100%; }
+        .service-item:hover { padding-left: 20px; }
+        .service-num {
+            font-family: 'Space Grotesk', sans-serif; font-size: 0.85rem;
+            color: var(--accent); letter-spacing: 1px;
+        }
+        .service-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(1.4rem, 2.5vw, 2.2rem); font-weight: 700;
+            letter-spacing: -1px; transition: color 0.3s;
+        }
+        .service-item:hover .service-name { color: var(--accent); }
+        .service-desc {
+            font-size: 0.9rem; color: var(--muted); line-height: 1.6;
+        }
+        .service-icon {
+            font-size: 1.2rem; transition: transform 0.4s;
+        }
+        .service-item:hover .service-icon {
+            transform: translateX(8px); color: var(--accent);
+        }
+
+        .stats-section {
+            padding: 100px 48px; max-width: 1400px; margin: 0 auto;
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .stat-item {
+            text-align: center; padding: 20px;
+        }
+        .stat-number {
+            font-family: 'Space Grotesk', sans-serif; font-size: 4rem;
+            font-weight: 700; color: var(--accent); line-height: 1;
+        }
+        .stat-label {
+            font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px;
+            color: var(--muted); margin-top: 12px;
+        }
+
+        /* Recent Imports Section Styles */
+        .recent-imports-section {
+            padding: 140px 48px;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: var(--bg);
+        }
+
+        .imports-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            justify-items: center;
+        }
+
+        .import-banner-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: 24px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .import-banner-container:hover {
+            transform: translateY(-5px);
+            border-color: rgba(200,255,0,0.2);
+        }
+
+        .import-banner-img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+        }
+
+        .testimonial-section {
+            padding: 160px 48px; text-align: center; position: relative;
+        }
+        .testimonial-quote {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(1.5rem, 3vw, 2.8rem); font-weight: 700;
+            line-height: 1.3; max-width: 900px; margin: 0 auto;
+            letter-spacing: -1px;
+        }
+        .testimonial-quote .accent { color: var(--accent); }
+        .testimonial-author {
+            margin-top: 40px; font-size: 0.85rem; letter-spacing: 2px;
+            text-transform: uppercase; color: var(--muted);
+        }
+        .quote-mark {
+            font-size: 8rem; color: var(--accent); opacity: 0.15;
+            line-height: 0.5; font-family: Georgia, serif;
+        }
+
+        .process-section {
+            padding: 140px 48px; max-width: 1400px; margin: 0 auto;
+        }
+        .process-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
+            margin-top: 60px;
+        }
+        .process-card {
+            padding: 40px 28px; border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px; transition: all 0.4s; position: relative;
+            overflow: hidden;
+        }
+        .process-card::before {
+            content: ''; position: absolute; top: 0; left: 0;
+            width: 100%; height: 2px; background: var(--accent);
+            transform: scaleX(0); transform-origin: left;
+            transition: transform 0.5s;
+        }
+        .process-card:hover::before { transform: scaleX(1); }
+        .process-card:hover {
+            border-color: rgba(200,255,0,0.2);
+            background: rgba(200,255,0,0.02);
+            transform: translateY(-5px);
+        }
+        .process-num {
+            font-family: 'Space Grotesk', sans-serif; font-size: 3rem;
+            font-weight: 700; color: rgba(200,255,0,0.15); line-height: 1;
+            margin-bottom: 20px;
+        }
+        .process-card:hover .process-num { color: var(--accent); }
+        .process-title {
+            font-family: 'Space Grotesk', sans-serif; font-size: 1.3rem;
+            font-weight: 700; margin-bottom: 12px;
+        }
+        .process-text {
+            font-size: 0.85rem; color: var(--muted); line-height: 1.6;
+        }
+
+        .cta-section {
+            padding: 160px 48px; text-align: center; position: relative;
+            overflow: hidden;
+        }
+        .cta-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(3rem, 8vw, 8rem); font-weight: 700;
+            letter-spacing: -3px; line-height: 0.95; margin-bottom: 40px;
+        }
+        .cta-title .outline {
+            -webkit-text-stroke: 1.5px var(--text); color: transparent;
+        }
+        .cta-glow {
+            position: absolute; width: 500px; height: 500px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(200,255,0,0.1), transparent 70%);
+            filter: blur(60px); top: 50%; left: 50%;
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+
+        .footer {
+            padding: 80px 48px 40px; border-top: 1px solid rgba(255,255,255,0.06);
+            max-width: 1400px; margin: 0 auto;
+        }
+        .footer-grid {
+            display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px;
+        }
+        .footer-col-title {
+            font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 20px;
+        }
+        .footer-col a {
+            display: block; color: var(--text); text-decoration: none;
+            font-size: 0.9rem; margin-bottom: 12px; transition: color 0.3s;
+        }
+        .footer-col a:hover { color: var(--accent); }
+        .footer-bottom {
+            margin-top: 60px; padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.8rem; color: var(--muted); flex-wrap: wrap; gap: 16px;
+        }
+
+        .reveal { opacity: 0; transform: translateY(60px); }
+
+        .particle {
+            position: absolute; width: 3px; height: 3px;
+            background: var(--accent); border-radius: 50%;
+            opacity: 0.3; pointer-events: none;
+        }
+
+        .whatsapp-float {
+            position: fixed; bottom: 32px; right: 32px; width: 60px; height: 60px;
+            background: #25D366; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; z-index: 9000;
+            box-shadow: 0 4px 20px rgba(37,211,102,0.4);
+            transition: transform 0.3s; text-decoration: none;
+            animation: whatsappPulse 2s infinite;
+        }
+        .whatsapp-float:hover { transform: scale(1.1); }
+        @keyframes whatsappPulse {
+            0%, 100% { box-shadow: 0 4px 20px rgba(37,211,102,0.4); }
+            50% { box-shadow: 0 4px 30px rgba(37,211,102,0.7); }
+        }
+        .whatsapp-float svg { width: 32px; height: 32px; fill: white; }
+
+        /* Carousel Styles */
+        .carousel-wrapper {
+            padding: 140px 48px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .carousel-container {
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .carousel {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            overflow: hidden;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .carousel-slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+        }
+
+        .carousel-slide.active {
+            opacity: 1;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .carousel-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+            color: white;
+            padding: 2rem;
+        }
+
+        .carousel-caption h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .carousel-caption p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Indicadores */
+        .carousel-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 1.5rem;
+        }
+
+        .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #ccc;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator.active {
+            background-color: #c8ff00;
+            transform: scale(1.3);
+        }
+
+        /* Flash Overlay */
+        .flash-overlay {
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 99999;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        /* Scroll to Top Button */
+        .scroll-to-top-btn {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--bg2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9000;
+            cursor: pointer;
+            transition: all 0.3s;
+            opacity: 0;
+            visibility: hidden;
+            box-shadow: 0 0 20px rgba(200, 255, 0, 0.2);
+        }
+
+        .scroll-to-top-btn.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .scroll-to-top-btn:hover {
+            background: var(--accent);
+            color: var(--bg);
+            box-shadow: 0 0 30px rgba(200, 255, 0, 0.5);
+            transform: translateX(-50%) scale(1.1);
+        }
+
+        .scroll-to-top-btn svg {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-deco-img { width: 60%; max-width: 400px; }
+            .brands-grid { grid-template-columns: 1fr 1fr; }
+            .brand-card.large { grid-column: span 2; grid-row: span 1; aspect-ratio: 2/1; }
+            .stats-section { grid-template-columns: 1fr 1fr; }
+            .process-grid { grid-template-columns: 1fr 1fr; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            * { cursor: auto; }
+            .cursor-dot, .cursor-ring { display: none; }
+            .hero-deco-img { width: 80%; max-width: 300px; }
+            .nav-bar { padding: 16px 20px; }
+            .nav-links { display: none; }
+            .hero { padding: 100px 20px 60px; }
+            .brands-section, .products-section, .services-section,
+            .process-section, .cta-section, .testimonial-section, .recent-imports-section { padding: 80px 20px; }
+            .brands-grid { grid-template-columns: 1fr; }
+            .brand-card.large { grid-column: span 1; aspect-ratio: 4/3; }
+            .service-item { grid-template-columns: 40px 1fr 30px; }
+            .service-desc { display: none; }
+            .stats-section { grid-template-columns: 1fr 1fr; padding: 60px 20px; }
+            .process-grid { grid-template-columns: 1fr; }
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer { padding: 60px 20px 30px; }
+            .hero-actions { flex-direction: column; width: 100%; }
+            .btn-primary, .btn-outline { width: 100%; justify-content: center; }
+            .imports-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+            .carousel-caption h2 { font-size: 1.5rem; }
+            .carousel-wrapper { padding: 80px 20px; }
+            .scroll-to-top-btn { width: 50px; height: 50px; bottom: 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loader" id="loader">
+        <div class="loader-count" id="loaderCount">0</div>
+        <div class="loader-bar"><div class="loader-bar-fill" id="loaderBar"></div></div>
+        <div class="loader-text">Nexus Import Global</div>
+    </div>
+
+    <!-- Flash Overlay -->
+    <div class="flash-overlay" id="flashOverlay"></div>
+
+    <div class="noise-overlay"></div>
+    <div class="cursor-dot" id="cursorDot"></div>
+    <div class="cursor-ring" id="cursorRing"></div>
+
+    <nav class="nav-bar" id="navbar">
+        <div class="nav-logo magnetic">Nexus<span>.</span>Import</div>
+        <ul class="nav-links">
+            <li><a href="#marcas" class="magnetic">Marcas</a></li>
+            <li><a href="#productos" class="magnetic">Productos</a></li>
+            <li><a href="#servicios" class="magnetic">Servicios</a></li>
+            <li><a href="#proceso" class="magnetic">Proceso</a></li>
+        </ul>
+        <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="nav-cta magnetic">Cotizar Ahora</a>
+    </nav>
+
+    <section class="hero" id="hero">
+        <div class="hero-bg-grid"></div>
+        <div class="hero-glow hero-glow-1"></div>
+        <div class="hero-glow hero-glow-2"></div>
+        <div class="hero-circles">
+            <div class="hero-circle"></div>
+            <div class="hero-circle"></div>
+            <div class="hero-circle"></div>
+        </div>
+
+        <!-- Decorative Image - Centered and Transparent -->
+        <div class="hero-deco-img" id="heroDecoImg">
+            <img
+                src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhdlOre_78-7mL0ZWH7Ll6C776cTj8fhHGhY3E1MqjK6iLuMXkgWe3Y_sPihp1XlEaRVh1YhaEpo05Rzhrkhb6vhnhC_Mk-60uGDri50L051rFD3s4HxFSnOg9uJXrll_FpFunyevc5DKOPAE9nyDN1p81-hUIrRdmD9fpmQdsObyM2pCP-Q781C27wXq4/s1024/foto.jpg"
+                srcset="
+                    https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhdlOre_78-7mL0ZWH7Ll6C776cTj8fhHGhY3E1MqjK6iLuMXkgWe3Y_sPihp1XlEaRVh1YhaEpo05Rzhrkhb6vhnhC_Mk-60uGDri50L051rFD3s4HxFSnOg9uJXrll_FpFunyevc5DKOPAE9nyDN1p81-hUIrRdmD9fpmQdsObyM2pCP-Q781C27wXq4/s400/foto.jpg 400w,
+                    https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhdlOre_78-7mL0ZWH7Ll6C776cTj8fhHGhY3E1MqjK6iLuMXkgWe3Y_sPihp1XlEaRVh1YhaEpo05Rzhrkhb6vhnhC_Mk-60uGDri50L051rFD3s4HxFSnOg9uJXrll_FpFunyevc5DKOPAE9nyDN1p81-hUIrRdmD9fpmQdsObyM2pCP-Q781C27wXq4/s600/foto.jpg 600w,
+                    https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhdlOre_78-7mL0ZWH7Ll6C776cTj8fhHGhY3E1MqjK6iLuMXkgWe3Y_sPihp1XlEaRVh1YhaEpo05Rzhrkhb6vhnhC_Mk-60uGDri50L051rFD3s4HxFSnOg9uJXrll_FpFunyevc5DKOPAE9nyDN1p81-hUIrRdmD9fpmQdsObyM2pCP-Q781C27wXq4/s1024/foto.jpg 1024w"
+                sizes="(max-width: 768px) 80vw, (max-width: 1024px) 60vw, 600px"
+                alt="Nexus Import Brands" crossorigin="anonymous" draggable="false" loading="eager" fetchpriority="high" decoding="async">
+        </div>
+
+        <div class="hero-badge reveal">
+            <div class="pulse"></div>
+            <span>Importaciones Directas desde EEUU</span>
+        </div>
+
+        <h1 class="hero-title">
+            <div class="line"><span>Tecnología</span></div>
+            <div class="line"><span><em class="accent">Premium</em> Sin</span></div>
+            <div class="line"><span class="outline-text">Fronteras</span></div>
+        </h1>
+
+        <p class="hero-subtitle">
+            <span>Apple · Xiaomi · Google Pixel · MacBook · Smartwatches — Originales, garantizados y al mejor precio</span>
+        </p>
+
+        <div class="hero-actions">
+            <a href="#productos" class="btn-primary magnetic" data-hover>
+                <span>Ver Catálogo</span>
+                <span>→</span>
+            </a>
+            <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="btn-outline magnetic" data-hover>
+                <span>WhatsApp</span>
+                <span></span>
+            </a>
+        </div>
+
+        <div class="hero-scroll" id="scrollIndicator">
+            <div class="line-scroll"></div>
+        </div>
+    </section>
+
+    <div class="marquee-section">
+        <div class="marquee-track">
+            <span class="brand-logo">Apple</span><span class="dot">●</span>
+            <span class="brand-logo">Xiaomi</span><span class="dot">●</span>
+            <span class="brand-logo">Google Pixel</span><span class="dot">●</span>
+            <span class="brand-logo">MacBook</span><span class="dot">●</span>
+            <span class="brand-logo">Samsung</span><span class="dot">●</span>
+            <span class="brand-logo">Smartwatches</span><span class="dot">●</span>
+            <span>Envíos a Todo el País</span><span class="dot">●</span>
+            <span>Garantía Oficial</span><span class="dot">●</span>
+            <span class="brand-logo">Apple</span><span class="dot">●</span>
+            <span class="brand-logo">Xiaomi</span><span class="dot">●</span>
+            <span class="brand-logo">Google Pixel</span><span class="dot">●</span>
+            <span class="brand-logo">MacBook</span><span class="dot">●</span>
+            <span class="brand-logo">Samsung</span><span class="dot">●</span>
+            <span class="brand-logo">Smartwatches</span><span class="dot">●</span>
+            <span>Envíos a Todo el País</span><span class="dot">●</span>
+            <span>Garantía Oficial</span><span class="dot">●</span>
+        </div>
+    </div>
+
+    <section class="brands-section" id="marcas">
+        <div class="section-header">
+            <div>
+                <div class="section-label reveal">Marcas Exclusivas</div>
+                <h2 class="section-title reveal">Las Mejores<br>Marcas del Mundo</h2>
+            </div>
+            <div class="section-count reveal">(05 Categorías)</div>
+        </div>
+
+        <div class="brands-grid">
+            <div class="brand-card large reveal" data-hover>
+                <img src="https://www.macworld.com/wp-content/uploads/2026/08/New-Apple-Products-Launching-Soon-4.jpg?quality=50&strip=all" alt="Apple iPhone" id="brandApple" loading="lazy" decoding="async">
+                <div class="brand-card-content">
+                    <div class="brand-card-tag">Flagship</div>
+                    <div class="brand-card-name">Apple iPhone</div>
+                    <div class="brand-card-desc">Cotiza tu teléfono de preferencia desde el iPhone 11 hasta el 17 Pro Max.</div>
+                </div>
+                <div class="brand-card-arrow"></div>
+            </div>
+
+            <div class="brand-card reveal" data-hover>
+                <img src="https://www.powerplanetonline.com/cdnassets/products/104041/xiaomi_17_ultra_kit_fotografia_principal_l.webp" alt="Xiaomi" id="brandXiaomi" loading="lazy" decoding="async">
+                <div class="brand-card-content">
+                    <div class="brand-card-tag">Top Ventas</div>
+                    <div class="brand-card-name">Xiaomi</div>
+                </div>
+                <div class="brand-card-arrow">↗</div>
+            </div>
+
+            <div class="brand-card reveal" data-hover>
+                <img src="https://hips.hearstapps.com/hmg-prod/images/google-pixel-10-group-007-68f93cdb85d08.jpg?crop=1.00xw:1.00xh;0,0" alt="Pixel" id="brandPixel" loading="lazy" decoding="async">
+                <div class="brand-card-content">
+                    <div class="brand-card-tag">Google</div>
+                    <div class="brand-card-name">Pixel</div>
+                </div>
+                <div class="brand-card-arrow">↗</div>
+            </div>
+
+            <div class="brand-card reveal" data-hover>
+                <img src="https://phonequilla.com/wp-content/uploads/2025/06/macbook-pro-m3.webp" alt="MacBook" id="brandMacbook" loading="lazy" decoding="async">
+                <div class="brand-card-content">
+                    <div class="brand-card-tag">Laptops</div>
+                    <div class="brand-card-name">MacBook</div>
+                </div>
+                <div class="brand-card-arrow"></div>
+            </div>
+
+            <div class="brand-card reveal" data-hover>
+                <img src="https://media.gq.com.mx/photos/67dc6a688dc0816e966e467a/16:9/w_1920,c_limit/Ilustracio%CC%81n_Tipos_de_Smartwatch_y_Smartband%20(1).jpg" alt="Smartwatches" id="brandWatches" loading="lazy" decoding="async">
+                <div class="brand-card-content">
+                    <div class="brand-card-tag">Wearables</div>
+                    <div class="brand-card-name">Smartwatches</div>
+                </div>
+                <div class="brand-card-arrow"></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="products-section" id="productos">
+        <div class="section-header">
+            <div>
+                <div class="section-label reveal">Galería Historial de Ventas</div>
+                <h2 class="section-title reveal">Dentro de los<br>14 Meses</h2>
+            </div>
+            <div class="section-count reveal">(Resultados Verificados)</div>
+        </div>
+
+        <div class="products-grid">
+            <!-- Product 1 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjc9_MPUffwBXUwBTU1W6IbpKWV5ISjfigxHLuYHbeudM93F0pOcOykyw4zReTLEIohnGctwCE9is9CQwY4zYnBq3GAfaQGAl6I_DExd8Zuqtubq28toY3UDXELTRuza4idAaB2S8hyphenhyphenJNZdHu_gca2sh8uIKUqqHlADOCIuHo-y3sLtuBlneDLhhIM9-bM/s1036/Captura%20de%20pantalla%202026-08-30%20231626.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjc9_MPUffwBXUwBTU1W6IbpKWV5ISjfigxHLuYHbeudM93F0pOcOykyw4zReTLEIohnGctwCE9is9CQwY4zYnBq3GAfaQGAl6I_DExd8Zuqtubq28toY3UDXELTRuza4idAaB2S8hyphenhyphenJNZdHu_gca2sh8uIKUqqHlADOCIuHo-y3sLtuBlneDLhhIM9-bM/s400/Captura%20de%20pantalla%202026-08-30%20231626.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjc9_MPUffwBXUwBTU1W6IbpKWV5ISjfigxHLuYHbeudM93F0pOcOykyw4zReTLEIohnGctwCE9is9CQwY4zYnBq3GAfaQGAl6I_DExd8Zuqtubq28toY3UDXELTRuza4idAaB2S8hyphenhyphenJNZdHu_gca2sh8uIKUqqHlADOCIuHo-y3sLtuBlneDLhhIM9-bM/s600/Captura%20de%20pantalla%202026-08-30%20231626.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjc9_MPUffwBXUwBTU1W6IbpKWV5ISjfigxHLuYHbeudM93F0pOcOykyw4zReTLEIohnGctwCE9is9CQwY4zYnBq3GAfaQGAl6I_DExd8Zuqtubq28toY3UDXELTRuza4idAaB2S8hyphenhyphenJNZdHu_gca2sh8uIKUqqHlADOCIuHo-y3sLtuBlneDLhhIM9-bM/s1036/Captura%20de%20pantalla%202026-08-30%20231626.png 1036w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="iPhone 16 Pro Venta" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">APPLE</div>
+                    <div class="product-name">Venta realizada de un iPhone 12 para un cliente de Ica</div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">VENDIDO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product 2 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjvqyOU3X20GjNiti0Who5HBDgkE7uSdaFEQTzapjT-p2U3bAvYhvDkWIo2O_ydYy7idhBt5Vu2ZCz_yVnHeHx33SNY1vDc0T2ys0LBvXY9QdVFd5YSgZJJrfvV25U_FpUmFWtpbxrVB556lWz29Wunp-pShYpyITnk59PcE9WVYA_LgXjB5yS2XpEGGYs/s1032/Captura%20de%20pantalla%202026-08-30%20231637.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjvqyOU3X20GjNiti0Who5HBDgkE7uSdaFEQTzapjT-p2U3bAvYhvDkWIo2O_ydYy7idhBt5Vu2ZCz_yVnHeHx33SNY1vDc0T2ys0LBvXY9QdVFd5YSgZJJrfvV25U_FpUmFWtpbxrVB556lWz29Wunp-pShYpyITnk59PcE9WVYA_LgXjB5yS2XpEGGYs/s400/Captura%20de%20pantalla%202026-08-30%20231637.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjvqyOU3X20GjNiti0Who5HBDgkE7uSdaFEQTzapjT-p2U3bAvYhvDkWIo2O_ydYy7idhBt5Vu2ZCz_yVnHeHx33SNY1vDc0T2ys0LBvXY9QdVFd5YSgZJJrfvV25U_FpUmFWtpbxrVB556lWz29Wunp-pShYpyITnk59PcE9WVYA_LgXjB5yS2XpEGGYs/s600/Captura%20de%20pantalla%202026-08-30%20231637.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjvqyOU3X20GjNiti0Who5HBDgkE7uSdaFEQTzapjT-p2U3bAvYhvDkWIo2O_ydYy7idhBt5Vu2ZCz_yVnHeHx33SNY1vDc0T2ys0LBvXY9QdVFd5YSgZJJrfvV25U_FpUmFWtpbxrVB556lWz29Wunp-pShYpyITnk59PcE9WVYA_LgXjB5yS2XpEGGYs/s1032/Captura%20de%20pantalla%202026-08-30%20231637.png 1032w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="MacBook Envío Trujillo" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">APPLE</div>
+                    <div class="product-name">Venta presencial de una Macbook pro 2019</div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">HOT</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product 3 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEho2owyxMuQmVIu9KsGpMZOrlvk7SYszbosJylohNqZVjX5a0HY9p7KJ8jsw1fL3uKeus5evA371gjl7zdf0qciTeuHl3a3B13oap_-eVFUDHeDWUY5lJzdI6z3ll9FmtXr6b4mgIwILhB74rS0cwv9vsoKaTCGwe7vElx3_Ya0WBGrOzHlFeOxTEdZpJ8/s920/Captura%20de%20pantalla%202026-08-30%20231650.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEho2owyxMuQmVIu9KsGpMZOrlvk7SYszbosJylohNqZVjX5a0HY9p7KJ8jsw1fL3uKeus5evA371gjl7zdf0qciTeuHl3a3B13oap_-eVFUDHeDWUY5lJzdI6z3ll9FmtXr6b4mgIwILhB74rS0cwv9vsoKaTCGwe7vElx3_Ya0WBGrOzHlFeOxTEdZpJ8/s400/Captura%20de%20pantalla%202026-08-30%20231650.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEho2owyxMuQmVIu9KsGpMZOrlvk7SYszbosJylohNqZVjX5a0HY9p7KJ8jsw1fL3uKeus5evA371gjl7zdf0qciTeuHl3a3B13oap_-eVFUDHeDWUY5lJzdI6z3ll9FmtXr6b4mgIwILhB74rS0cwv9vsoKaTCGwe7vElx3_Ya0WBGrOzHlFeOxTEdZpJ8/s600/Captura%20de%20pantalla%202026-08-30%20231650.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEho2owyxMuQmVIu9KsGpMZOrlvk7SYszbosJylohNqZVjX5a0HY9p7KJ8jsw1fL3uKeus5evA371gjl7zdf0qciTeuHl3a3B13oap_-eVFUDHeDWUY5lJzdI6z3ll9FmtXr6b4mgIwILhB74rS0cwv9vsoKaTCGwe7vElx3_Ya0WBGrOzHlFeOxTEdZpJ8/s920/Captura%20de%20pantalla%202026-08-30%20231650.png 920w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="Consulta Satisfacción Cliente" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">SAMSUNG</div>
+                    <div class="product-name">Venta presencial de un S22 ultra en Comas , el equipo fue importado y sellado</div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">NUEVO</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product 4 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgEJ18cCtkoiC5pcXly2j500-7wjPyA2Zg4PrelklBUL8ePvKeAIjWjzJ3geam7XI7h1stCFXa3TxhEZIG03bbQYKvjZv8VFjPk-reS37AZBteJ061XPkrWkyuMDTtLcm81BVpou98h_iyB462PMsjQhNBfm0ryaH6In3N_D3yOuMlxuVRHlccWVcstD3I/s932/Captura%20de%20pantalla%202026-08-30%20231701.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgEJ18cCtkoiC5pcXly2j500-7wjPyA2Zg4PrelklBUL8ePvKeAIjWjzJ3geam7XI7h1stCFXa3TxhEZIG03bbQYKvjZv8VFjPk-reS37AZBteJ061XPkrWkyuMDTtLcm81BVpou98h_iyB462PMsjQhNBfm0ryaH6In3N_D3yOuMlxuVRHlccWVcstD3I/s400/Captura%20de%20pantalla%202026-08-30%20231701.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgEJ18cCtkoiC5pcXly2j500-7wjPyA2Zg4PrelklBUL8ePvKeAIjWjzJ3geam7XI7h1stCFXa3TxhEZIG03bbQYKvjZv8VFjPk-reS37AZBteJ061XPkrWkyuMDTtLcm81BVpou98h_iyB462PMsjQhNBfm0ryaH6In3N_D3yOuMlxuVRHlccWVcstD3I/s600/Captura%20de%20pantalla%202026-08-30%20231701.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgEJ18cCtkoiC5pcXly2j500-7wjPyA2Zg4PrelklBUL8ePvKeAIjWjzJ3geam7XI7h1stCFXa3TxhEZIG03bbQYKvjZv8VFjPk-reS37AZBteJ061XPkrWkyuMDTtLcm81BVpou98h_iyB462PMsjQhNBfm0ryaH6In3N_D3yOuMlxuVRHlccWVcstD3I/s932/Captura%20de%20pantalla%202026-08-30%20231701.png 932w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="Samsung S22 Ultra" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">APPLE</div>
+                    <div class="product-name">Imagen enviada por un cliente sobre un Iphone que le llego </div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">Vendido</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product 5 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiODtqv_MzrLZzp3xZO3ewSdWjBiu4Vm3lucM-sNUgZ7U5KcPw63gOgAabsZTh4Q_KWfgwIdB8RAbOR1RiCD-ToPvpZyHIwXkttfQqonWMGJDHe3y1TMv9nhICnOyDHqZCaUbEeRcMJag2iuML7MEkOJY-QWlDUcy2hOL0nrnlGX2yVMyb99f4VWmay9zY/s1218/Captura%20de%20pantalla%202026-08-30%20231721.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiODtqv_MzrLZzp3xZO3ewSdWjBiu4Vm3lucM-sNUgZ7U5KcPw63gOgAabsZTh4Q_KWfgwIdB8RAbOR1RiCD-ToPvpZyHIwXkttfQqonWMGJDHe3y1TMv9nhICnOyDHqZCaUbEeRcMJag2iuML7MEkOJY-QWlDUcy2hOL0nrnlGX2yVMyb99f4VWmay9zY/s400/Captura%20de%20pantalla%202026-08-30%20231721.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiODtqv_MzrLZzp3xZO3ewSdWjBiu4Vm3lucM-sNUgZ7U5KcPw63gOgAabsZTh4Q_KWfgwIdB8RAbOR1RiCD-ToPvpZyHIwXkttfQqonWMGJDHe3y1TMv9nhICnOyDHqZCaUbEeRcMJag2iuML7MEkOJY-QWlDUcy2hOL0nrnlGX2yVMyb99f4VWmay9zY/s600/Captura%20de%20pantalla%202026-08-30%20231721.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiODtqv_MzrLZzp3xZO3ewSdWjBiu4Vm3lucM-sNUgZ7U5KcPw63gOgAabsZTh4Q_KWfgwIdB8RAbOR1RiCD-ToPvpZyHIwXkttfQqonWMGJDHe3y1TMv9nhICnOyDHqZCaUbEeRcMJag2iuML7MEkOJY-QWlDUcy2hOL0nrnlGX2yVMyb99f4VWmay9zY/s1218/Captura%20de%20pantalla%202026-08-30%20231721.png 1218w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="AirPods Pro 2" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">Envio de un IPHONE 13 PRO MAX a CHICLAYO</div>
+                    <div class="product-name">Transporte Emtrafesa</div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">Hot</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product 6 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjxoFpJpWDUGzNW1edy_4LstaZvVqG62Py8mAwt31xzKWRsBNnpzPQB6hWtSsY2roY94TuYUvEzsaUdfYqpzJDUYiVkoGpfmri0_1bvMpbTtPcHhjnk_4inYmbMclcCdzWfUf-bElO4YJrHoFx4v6VvmRBM-tsPg2hrTlsoZt-U8GxEqOzq0gWdAdHxn8Q/s1198/Captura%20de%20pantalla%202026-08-30%20231757.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjxoFpJpWDUGzNW1edy_4LstaZvVqG62Py8mAwt31xzKWRsBNnpzPQB6hWtSsY2roY94TuYUvEzsaUdfYqpzJDUYiVkoGpfmri0_1bvMpbTtPcHhjnk_4inYmbMclcCdzWfUf-bElO4YJrHoFx4v6VvmRBM-tsPg2hrTlsoZt-U8GxEqOzq0gWdAdHxn8Q/s400/Captura%20de%20pantalla%202026-08-30%20231757.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjxoFpJpWDUGzNW1edy_4LstaZvVqG62Py8mAwt31xzKWRsBNnpzPQB6hWtSsY2roY94TuYUvEzsaUdfYqpzJDUYiVkoGpfmri0_1bvMpbTtPcHhjnk_4inYmbMclcCdzWfUf-bElO4YJrHoFx4v6VvmRBM-tsPg2hrTlsoZt-U8GxEqOzq0gWdAdHxn8Q/s600/Captura%20de%20pantalla%202026-08-30%20231757.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjxoFpJpWDUGzNW1edy_4LstaZvVqG62Py8mAwt31xzKWRsBNnpzPQB6hWtSsY2roY94TuYUvEzsaUdfYqpzJDUYiVkoGpfmri0_1bvMpbTtPcHhjnk_4inYmbMclcCdzWfUf-bElO4YJrHoFx4v6VvmRBM-tsPg2hrTlsoZt-U8GxEqOzq0gWdAdHxn8Q/s1198/Captura%20de%20pantalla%202026-08-30%20231757.png 1198w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="iPad Air M2" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">PIXEL 7</div>
+                    <div class="product-name">Consulta Postventa sobre la cobertura y estado del equipo"</div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">OPENBOX</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product 7 -->
+            <div class="product-card reveal" data-hover>
+                <img class="product-img"
+                    src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTkB3U2NBtx2PNESedR3_Gq3ebLLUed-YyAuqArg2i3BlCaDHtgPu-Cg7_3_mjeftRhO7_TKC8Nd2ST9T518B-nqfciwHEVVoopoZXMAJ2UTZBOeDqN8gvJKPjCMQJSztV2jDSxdtazaJMNzRUyfvncnxc575T2UyFM7K3VoPAEroNZx5bSkZxPDf3ZAE/s1052/Captura%20de%20pantalla%202026-08-30%20231732.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTkB3U2NBtx2PNESedR3_Gq3ebLLUed-YyAuqArg2i3BlCaDHtgPu-Cg7_3_mjeftRhO7_TKC8Nd2ST9T518B-nqfciwHEVVoopoZXMAJ2UTZBOeDqN8gvJKPjCMQJSztV2jDSxdtazaJMNzRUyfvncnxc575T2UyFM7K3VoPAEroNZx5bSkZxPDf3ZAE/s400/Captura%20de%20pantalla%202026-08-30%20231732.png 400w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTkB3U2NBtx2PNESedR3_Gq3ebLLUed-YyAuqArg2i3BlCaDHtgPu-Cg7_3_mjeftRhO7_TKC8Nd2ST9T518B-nqfciwHEVVoopoZXMAJ2UTZBOeDqN8gvJKPjCMQJSztV2jDSxdtazaJMNzRUyfvncnxc575T2UyFM7K3VoPAEroNZx5bSkZxPDf3ZAE/s600/Captura%20de%20pantalla%202026-08-30%20231732.png 600w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgTkB3U2NBtx2PNESedR3_Gq3ebLLUed-YyAuqArg2i3BlCaDHtgPu-Cg7_3_mjeftRhO7_TKC8Nd2ST9T518B-nqfciwHEVVoopoZXMAJ2UTZBOeDqN8gvJKPjCMQJSztV2jDSxdtazaJMNzRUyfvncnxc575T2UyFM7K3VoPAEroNZx5bSkZxPDf3ZAE/s1052/Captura%20de%20pantalla%202026-08-30%20231732.png 1052w"
+                    sizes="(max-width: 600px) 90vw, (max-width: 900px) 45vw, 380px"
+                    alt="Apple Watch Series 9" loading="lazy" decoding="async">
+                <div class="product-body">
+                    <div class="product-brand">Apple</div>
+                    <div class="product-name">Iphone 16 pro , consulta postventa</div>
+                    <div class="product-price">
+                        <div class="product-price-val">Consultar</div>
+                        <div class="product-badge">GPS</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats-section">
+        <div class="stat-item reveal">
+            <div class="stat-number" data-count="29">0</div>
+            <div class="stat-label">Clientes Finales</div>
+        </div>
+        <div class="stat-item reveal">
+            <div class="stat-number" data-count="24">0</div>
+            <div class="stat-label">Productos Enviados a Todo el Perú</div>
+        </div>
+        <div class="stat-item reveal">
+            <div class="stat-number" data-count="3">0</div>
+            <div class="stat-label">Años de Experiencia</div>
+        </div>
+        <div class="stat-item reveal">
+            <div class="stat-number" data-count="100">0</div>
+            <div class="stat-label">% Originales</div>
+        </div>
+    </section>
+
+    <section class="services-section" id="servicios">
+        <div class="section-header">
+            <div>
+                <div class="section-label reveal">Qué Hacemos</div>
+                <h2 class="section-title reveal">Nuestros<br>Servicios</h2>
+            </div>
+            <div class="section-count reveal">(06 Servicios)</div>
+        </div>
+
+        <div class="service-list">
+            <div class="service-item reveal" data-hover>
+                <div class="service-num">01</div>
+                <div class="service-name">Importación Directa</div>
+                <div class="service-desc">Traemos tus productos directamente desde Estados Unidos, sin intermediarios, al mejor precio del mercado.</div>
+                <div class="service-icon">→</div>
+            </div>
+            <div class="service-item reveal" data-hover>
+                <div class="service-num">02</div>
+                <div class="service-name">Asesoría Personalizada</div>
+                <div class="service-desc">Te ayudamos a elegir el producto perfecto según tus necesidades y presupuesto. Atención uno a uno.</div>
+                <div class="service-icon">→</div>
+            </div>
+            <div class="service-item reveal" data-hover>
+                <div class="service-num">03</div>
+                <div class="service-name">Envíos Nacionales</div>
+                <div class="service-desc">Entregas seguras a todo el país con tracking en tiempo real y embalaje premium protector.</div>
+                <div class="service-icon">→</div>
+            </div>
+            <div class="service-item reveal" data-hover>
+                <div class="service-num">04</div>
+                <div class="service-name">Garantía Oficial</div>
+                <div class="service-desc">Todos nuestros productos cuentan con garantía de 8 meses por problema lógico y soporte postventa. Confía en nosotros, no vendemos equipos de segunda mano :)</div>
+                <div class="service-icon">→</div>
+            </div>
+            <div class="service-item reveal" data-hover>
+                <div class="service-num">05</div>
+                <div class="service-name">Pedidos por Encargo</div>
+                <div class="service-desc">¿No encuentras lo que buscas? Te lo conseguimos. Cualquier producto de EEUU a tu puerta.</div>
+                <div class="service-icon">→</div>
+            </div>
+            <div class="service-item reveal" data-hover>
+                <div class="service-num">06</div>
+                <div class="service-name">Modalidad de Pago</div>
+                <div class="service-desc">Realiza la cotización con nosotros; el 50% se realiza tu compra y el otro 50% lo pagas cuando tengas el producto en tus manos.</div>
+                <div class="service-icon">→</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- NEW SECTION: ULTIMAS IMPORTACIONES EN LOS 6 MESES -->
+    <section class="recent-imports-section" id="ultimas-importaciones">
+        <div class="section-header">
+            <div>
+                <div class="section-label reveal">Historial Reciente</div>
+                <h2 class="section-title reveal">Últimas Importaciones<br>en los 6 Meses</h2>
+            </div>
+            <div class="section-count reveal">(Resultados Verificados)</div>
+        </div>
+
+        <div class="imports-grid">
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhSGcIBynjVmAvRPidfVHhJ5TmAbVyMRH_ZVJRsAzwrMAZ_K0FNn-lCessmHgmdHQjx8_OHHmp1CYvlKXKIYDZUODFjiNKOXVFxOUudT1JUcJo-nbXTdrK10vJjICn0gRQDXtHN6EsMblUwBnCmNgHxWHtSd1117G90D67bXQ5T46LgeYlIw2Xc1vEwcxY/s767/Captura%20de%20pantalla%202026-08-30%20215434.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhSGcIBynjVmAvRPidfVHhJ5TmAbVyMRH_ZVJRsAzwrMAZ_K0FNn-lCessmHgmdHQjx8_OHHmp1CYvlKXKIYDZUODFjiNKOXVFxOUudT1JUcJo-nbXTdrK10vJjICn0gRQDXtHN6EsMblUwBnCmNgHxWHtSd1117G90D67bXQ5T46LgeYlIw2Xc1vEwcxY/s320/Captura%20de%20pantalla%202026-08-30%20215434.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhSGcIBynjVmAvRPidfVHhJ5TmAbVyMRH_ZVJRsAzwrMAZ_K0FNn-lCessmHgmdHQjx8_OHHmp1CYvlKXKIYDZUODFjiNKOXVFxOUudT1JUcJo-nbXTdrK10vJjICn0gRQDXtHN6EsMblUwBnCmNgHxWHtSd1117G90D67bXQ5T46LgeYlIw2Xc1vEwcxY/s767/Captura%20de%20pantalla%202026-08-30%20215434.png 767w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 1"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijGuteVe1813X2L_o2dmYFp_kSRFDk0nP6YZ6PXX08P7PdXC4euV1G2IfE_aZMXtjJ7ZGTDPE6SiXbwJK3cJEdyFhndqw0ONhKbzpSPQqgUNZzMQzDH1_ge7e0RZVgWxKG82GqcVfqR2P4dqn3AnX5N4ZRJ2jDpCd5xc7hpaWvmTq07LMOvTvpSraS1tk/s745/Captura%20de%20pantalla%202026-08-30%20222913.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijGuteVe1813X2L_o2dmYFp_kSRFDk0nP6YZ6PXX08P7PdXC4euV1G2IfE_aZMXtjJ7ZGTDPE6SiXbwJK3cJEdyFhndqw0ONhKbzpSPQqgUNZzMQzDH1_ge7e0RZVgWxKG82GqcVfqR2P4dqn3AnX5N4ZRJ2jDpCd5xc7hpaWvmTq07LMOvTvpSraS1tk/s320/Captura%20de%20pantalla%202026-08-30%20222913.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijGuteVe1813X2L_o2dmYFp_kSRFDk0nP6YZ6PXX08P7PdXC4euV1G2IfE_aZMXtjJ7ZGTDPE6SiXbwJK3cJEdyFhndqw0ONhKbzpSPQqgUNZzMQzDH1_ge7e0RZVgWxKG82GqcVfqR2P4dqn3AnX5N4ZRJ2jDpCd5xc7hpaWvmTq07LMOvTvpSraS1tk/s745/Captura%20de%20pantalla%202026-08-30%20222913.png 745w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 2"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgxDukLOflt_ArQRQq08BA_JGeTSYHeke9aYCVS_VoNHTH8t0TBMiyUTxR6_YT5diAEeUh0k74ABAya8F64uYz6tN-9ylPpsDxbcyZz_Pnr_f6mkLj7vGBRJcb4D0bPGPRXoU7Jb-rr21J1mXD4c-8NCYIIi7sj2J84iK9OjlEqeBVGEZhyN9Id9s6ZoZc/s660/Captura%20de%20pantalla%202026-08-30%20222920.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgxDukLOflt_ArQRQq08BA_JGeTSYHeke9aYCVS_VoNHTH8t0TBMiyUTxR6_YT5diAEeUh0k74ABAya8F64uYz6tN-9ylPpsDxbcyZz_Pnr_f6mkLj7vGBRJcb4D0bPGPRXoU7Jb-rr21J1mXD4c-8NCYIIi7sj2J84iK9OjlEqeBVGEZhyN9Id9s6ZoZc/s320/Captura%20de%20pantalla%202026-08-30%20222920.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgxDukLOflt_ArQRQq08BA_JGeTSYHeke9aYCVS_VoNHTH8t0TBMiyUTxR6_YT5diAEeUh0k74ABAya8F64uYz6tN-9ylPpsDxbcyZz_Pnr_f6mkLj7vGBRJcb4D0bPGPRXoU7Jb-rr21J1mXD4c-8NCYIIi7sj2J84iK9OjlEqeBVGEZhyN9Id9s6ZoZc/s660/Captura%20de%20pantalla%202026-08-30%20222920.png 660w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 3"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiL56n55s5GZh9Q8zCUJalYmxC-czgUolNBWHHMvBpPpYK_lhjrgvxpUGoHq-VoInckI2t_0ocUfJSCA9QEUNBpla7M94dKDaZ7B-Xl_iQ1jqmC_a8HF4Ou0hyphenhyphen3Es0S5Er3Yw0qQ6IThzRat2ocwLN_pO-P3Avf8fZrRMtvCxV7LLOnyw8ecK6uSdsS52Y/s451/Captura%20de%20pantalla%202026-08-30%20222925.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiL56n55s5GZh9Q8zCUJalYmxC-czgUolNBWHHMvBpPpYK_lhjrgvxpUGoHq-VoInckI2t_0ocUfJSCA9QEUNBpla7M94dKDaZ7B-Xl_iQ1jqmC_a8HF4Ou0hyphenhyphen3Es0S5Er3Yw0qQ6IThzRat2ocwLN_pO-P3Avf8fZrRMtvCxV7LLOnyw8ecK6uSdsS52Y/s320/Captura%20de%20pantalla%202026-08-30%20222925.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiL56n55s5GZh9Q8zCUJalYmxC-czgUolNBWHHMvBpPpYK_lhjrgvxpUGoHq-VoInckI2t_0ocUfJSCA9QEUNBpla7M94dKDaZ7B-Xl_iQ1jqmC_a8HF4Ou0hyphenhyphen3Es0S5Er3Yw0qQ6IThzRat2ocwLN_pO-P3Avf8fZrRMtvCxV7LLOnyw8ecK6uSdsS52Y/s451/Captura%20de%20pantalla%202026-08-30%20222925.png 451w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 4"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhJeCilIJmgW9-xAx9ervHwAUStae-7tdMgJpQqg4fdbA0zJpduIelUACN0qHlTU2sRbvI1vI5CHY0WCo0eZnl9YERlIr9tVuNzVCV8MYnN-RkE-fOYstzezGo4zNbjaQr3bQhrzStx_fnIpS-gW2ZgJI2J5dVM62TzlcOgQuR5Q3iYJJb7s__RWrWG3cI/s527/Captura%20de%20pantalla%202026-08-30%20222929.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhJeCilIJmgW9-xAx9ervHwAUStae-7tdMgJpQqg4fdbA0zJpduIelUACN0qHlTU2sRbvI1vI5CHY0WCo0eZnl9YERlIr9tVuNzVCV8MYnN-RkE-fOYstzezGo4zNbjaQr3bQhrzStx_fnIpS-gW2ZgJI2J5dVM62TzlcOgQuR5Q3iYJJb7s__RWrWG3cI/s320/Captura%20de%20pantalla%202026-08-30%20222929.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhJeCilIJmgW9-xAx9ervHwAUStae-7tdMgJpQqg4fdbA0zJpduIelUACN0qHlTU2sRbvI1vI5CHY0WCo0eZnl9YERlIr9tVuNzVCV8MYnN-RkE-fOYstzezGo4zNbjaQr3bQhrzStx_fnIpS-gW2ZgJI2J5dVM62TzlcOgQuR5Q3iYJJb7s__RWrWG3cI/s527/Captura%20de%20pantalla%202026-08-30%20222929.png 527w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 5"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgnEFeeuVuStfWzp-cjbitmFGymc_8nmNKKUAMpWLhFZ7pxUGwA5E5iPuiw7OfK_L5ZODINxh5iBEj0zWAYSSp3K8vy_WxNz44hhPapQoaQuHDcrlCqKhq4WXTtZRf4h2owdW1zlhepHxTh7pdWfdxARjhu99XfjP0lgED4BL6fFF8MdXFC4vTV96CgopU/s537/Captura%20de%20pantalla%202026-08-30%20222934.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgnEFeeuVuStfWzp-cjbitmFGymc_8nmNKKUAMpWLhFZ7pxUGwA5E5iPuiw7OfK_L5ZODINxh5iBEj0zWAYSSp3K8vy_WxNz44hhPapQoaQuHDcrlCqKhq4WXTtZRf4h2owdW1zlhepHxTh7pdWfdxARjhu99XfjP0lgED4BL6fFF8MdXFC4vTV96CgopU/s320/Captura%20de%20pantalla%202026-08-30%20222934.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgnEFeeuVuStfWzp-cjbitmFGymc_8nmNKKUAMpWLhFZ7pxUGwA5E5iPuiw7OfK_L5ZODINxh5iBEj0zWAYSSp3K8vy_WxNz44hhPapQoaQuHDcrlCqKhq4WXTtZRf4h2owdW1zlhepHxTh7pdWfdxARjhu99XfjP0lgED4BL6fFF8MdXFC4vTV96CgopU/s537/Captura%20de%20pantalla%202026-08-30%20222934.png 537w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 6"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+
+            <div class="import-banner-container reveal" data-hover>
+                <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhWwtRfy92r1VaqZgbYzKiIGBcPt7Eje_r-6cQ6AXK5zsIhJwYoEEjT2B54lrCuDmmiS3y7Jdles34_TF_y5HLFHOF9yuAdkcf3Glyinz2EXuo1eYe_kMjlUUwkVxPsKog6HFxdvrdhvXld7UkXozXoJL62jiAh2EkCa4nsgdnAz0r8yYMSloQxPiX5BUE/s525/Captura%20de%20pantalla%202026-08-30%20222941.png"
+                    srcset="
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhWwtRfy92r1VaqZgbYzKiIGBcPt7Eje_r-6cQ6AXK5zsIhJwYoEEjT2B54lrCuDmmiS3y7Jdles34_TF_y5HLFHOF9yuAdkcf3Glyinz2EXuo1eYe_kMjlUUwkVxPsKog6HFxdvrdhvXld7UkXozXoJL62jiAh2EkCa4nsgdnAz0r8yYMSloQxPiX5BUE/s320/Captura%20de%20pantalla%202026-08-30%20222941.png 320w,
+                        https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhWwtRfy92r1VaqZgbYzKiIGBcPt7Eje_r-6cQ6AXK5zsIhJwYoEEjT2B54lrCuDmmiS3y7Jdles34_TF_y5HLFHOF9yuAdkcf3Glyinz2EXuo1eYe_kMjlUUwkVxPsKog6HFxdvrdhvXld7UkXozXoJL62jiAh2EkCa4nsgdnAz0r8yYMSloQxPiX5BUE/s525/Captura%20de%20pantalla%202026-08-30%20222941.png 525w"
+                    sizes="(max-width: 767px) 45vw, 23vw"
+                    alt="Últimas Importaciones 7"
+                    class="import-banner-img" loading="lazy" decoding="async">
+            </div>
+        </div>
+    </section>
+    <!-- END NEW SECTION -->
+
+    <!-- CAROUSEL SECTION START -->
+    <section class="carousel-wrapper">
+        <div class="section-header">
+            <div>
+                <div class="section-label reveal">Galeria de fotos de los equipos importados</div>
+                <h2 class="section-title reveal">NUEVOS<br>Y EQUIPOS OPENBOX</h2>
+            </div>
+        </div>
+
+        <div class="carousel-container">
+            <div class="carousel">
+                <div class="carousel-slide active">
+                    <img
+                        src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgE3V713S6GBA-j1x7bzzurrEf6XaZlngkRycFEYtIz019Pf4jYa8whrmqf9lKdlQ-tl0H7zTIAHGS8ZNhQlDxYZ2bCS-2JKuKHBD_o0RULlTuhGEORKYMBJerS9lE9BOQa9YwKjnCKKg15U_-2Ah0duRsoqBSchXyqe3tH3TI3r3yBimVm22Gz7s32_xY/s1650/por1.png"
+                        srcset="
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgE3V713S6GBA-j1x7bzzurrEf6XaZlngkRycFEYtIz019Pf4jYa8whrmqf9lKdlQ-tl0H7zTIAHGS8ZNhQlDxYZ2bCS-2JKuKHBD_o0RULlTuhGEORKYMBJerS9lE9BOQa9YwKjnCKKg15U_-2Ah0duRsoqBSchXyqe3tH3TI3r3yBimVm22Gz7s32_xY/s640/por1.png 640w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgE3V713S6GBA-j1x7bzzurrEf6XaZlngkRycFEYtIz019Pf4jYa8whrmqf9lKdlQ-tl0H7zTIAHGS8ZNhQlDxYZ2bCS-2JKuKHBD_o0RULlTuhGEORKYMBJerS9lE9BOQa9YwKjnCKKg15U_-2Ah0duRsoqBSchXyqe3tH3TI3r3yBimVm22Gz7s32_xY/s1024/por1.png 1024w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgE3V713S6GBA-j1x7bzzurrEf6XaZlngkRycFEYtIz019Pf4jYa8whrmqf9lKdlQ-tl0H7zTIAHGS8ZNhQlDxYZ2bCS-2JKuKHBD_o0RULlTuhGEORKYMBJerS9lE9BOQa9YwKjnCKKg15U_-2Ah0duRsoqBSchXyqe3tH3TI3r3yBimVm22Gz7s32_xY/s1400/por1.png 1400w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgE3V713S6GBA-j1x7bzzurrEf6XaZlngkRycFEYtIz019Pf4jYa8whrmqf9lKdlQ-tl0H7zTIAHGS8ZNhQlDxYZ2bCS-2JKuKHBD_o0RULlTuhGEORKYMBJerS9lE9BOQa9YwKjnCKKg15U_-2Ah0duRsoqBSchXyqe3tH3TI3r3yBimVm22Gz7s32_xY/s1650/por1.png 1650w"
+                        sizes="100vw"
+                        alt="Equipo importado openbox en excelente estado, calidad A1" loading="lazy" decoding="async">
+                    <div class="carousel-caption">
+                        <h2>LA CALIDAD DE NUESTROS EQUIPOS SON A1</h2>
+                        <p>Somos tu mejor opcion en equipos de buena calidad-precio.</p>
+                    </div>
+                </div>
+
+                <div class="carousel-slide">
+                    <img
+                        src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFDEfz7zEJUqyfB4QBLKf47lmfoCRnHQge8BIFoHd7OmwOD0mNhgeL0kQL-zTe8Zr9ZDkL8oL62ldZ_R_wo4n33gVkgHPV3x9ygYJxDqjes2uceO5bZobRaBwmj05vCBin6-e8OS5fx1qBwOkMXH7td-MsvlygwVrBW8ULY2J9nuJvUiMxiqYGDeL35IQ/s1650/por2.png"
+                        srcset="
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFDEfz7zEJUqyfB4QBLKf47lmfoCRnHQge8BIFoHd7OmwOD0mNhgeL0kQL-zTe8Zr9ZDkL8oL62ldZ_R_wo4n33gVkgHPV3x9ygYJxDqjes2uceO5bZobRaBwmj05vCBin6-e8OS5fx1qBwOkMXH7td-MsvlygwVrBW8ULY2J9nuJvUiMxiqYGDeL35IQ/s640/por2.png 640w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFDEfz7zEJUqyfB4QBLKf47lmfoCRnHQge8BIFoHd7OmwOD0mNhgeL0kQL-zTe8Zr9ZDkL8oL62ldZ_R_wo4n33gVkgHPV3x9ygYJxDqjes2uceO5bZobRaBwmj05vCBin6-e8OS5fx1qBwOkMXH7td-MsvlygwVrBW8ULY2J9nuJvUiMxiqYGDeL35IQ/s1024/por2.png 1024w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFDEfz7zEJUqyfB4QBLKf47lmfoCRnHQge8BIFoHd7OmwOD0mNhgeL0kQL-zTe8Zr9ZDkL8oL62ldZ_R_wo4n33gVkgHPV3x9ygYJxDqjes2uceO5bZobRaBwmj05vCBin6-e8OS5fx1qBwOkMXH7td-MsvlygwVrBW8ULY2J9nuJvUiMxiqYGDeL35IQ/s1400/por2.png 1400w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiFDEfz7zEJUqyfB4QBLKf47lmfoCRnHQge8BIFoHd7OmwOD0mNhgeL0kQL-zTe8Zr9ZDkL8oL62ldZ_R_wo4n33gVkgHPV3x9ygYJxDqjes2uceO5bZobRaBwmj05vCBin6-e8OS5fx1qBwOkMXH7td-MsvlygwVrBW8ULY2J9nuJvUiMxiqYGDeL35IQ/s1650/por2.png 1650w"
+                        sizes="100vw"
+                        alt="MacBook disponible desde 12 hasta 16 pulgadas" loading="lazy" decoding="async">
+                    <div class="carousel-caption">
+                        <h2>Macbook ligera desde las 12 pulgadas hasta 16 pulgadas </h2>
+                        <p>Olvidate de las complicaciones, nosotros nos encargamos de la parte logistica desde EEUU hasta Perú.</p>
+                    </div>
+                </div>
+
+                <div class="carousel-slide">
+                    <img
+                        src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgMu2DqtsF7zgAshxPjoAXWXOtYDmc2n760eGbj53PD7tJNXZ5QS510P-PCcIE6oRvxgBaSNY7_45hnOB3gk9Zhfa6gmVw3Sqhw0boaynmpQa2_9jLWyjVnmAeBsTaxgAO5a4TUrvwFtT6KUf0FYpliiCZci_0tywreuUHySUPt9nuQmbbHgujQ7OMcNuY/s1650/por3.png"
+                        srcset="
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgMu2DqtsF7zgAshxPjoAXWXOtYDmc2n760eGbj53PD7tJNXZ5QS510P-PCcIE6oRvxgBaSNY7_45hnOB3gk9Zhfa6gmVw3Sqhw0boaynmpQa2_9jLWyjVnmAeBsTaxgAO5a4TUrvwFtT6KUf0FYpliiCZci_0tywreuUHySUPt9nuQmbbHgujQ7OMcNuY/s640/por3.png 640w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgMu2DqtsF7zgAshxPjoAXWXOtYDmc2n760eGbj53PD7tJNXZ5QS510P-PCcIE6oRvxgBaSNY7_45hnOB3gk9Zhfa6gmVw3Sqhw0boaynmpQa2_9jLWyjVnmAeBsTaxgAO5a4TUrvwFtT6KUf0FYpliiCZci_0tywreuUHySUPt9nuQmbbHgujQ7OMcNuY/s1024/por3.png 1024w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgMu2DqtsF7zgAshxPjoAXWXOtYDmc2n760eGbj53PD7tJNXZ5QS510P-PCcIE6oRvxgBaSNY7_45hnOB3gk9Zhfa6gmVw3Sqhw0boaynmpQa2_9jLWyjVnmAeBsTaxgAO5a4TUrvwFtT6KUf0FYpliiCZci_0tywreuUHySUPt9nuQmbbHgujQ7OMcNuY/s1400/por3.png 1400w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgMu2DqtsF7zgAshxPjoAXWXOtYDmc2n760eGbj53PD7tJNXZ5QS510P-PCcIE6oRvxgBaSNY7_45hnOB3gk9Zhfa6gmVw3Sqhw0boaynmpQa2_9jLWyjVnmAeBsTaxgAO5a4TUrvwFtT6KUf0FYpliiCZci_0tywreuUHySUPt9nuQmbbHgujQ7OMcNuY/s1650/por3.png 1650w"
+                        sizes="100vw"
+                        alt="Elige la capacidad y color del equipo que tienes en mente" loading="lazy" decoding="async">
+                    <div class="carousel-caption">
+                        <h2>La capacidad y color del equipo que tienes en mente</h2>
+                        <p>Lo podemos buscar por ti, lo cotizo ,pagas el 50% y el 50% cuando esta en Peru, realizamos envios a toda parte del Peru.</p>
+                    </div>
+                </div>
+
+                <div class="carousel-slide">
+                    <img
+                        src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhLsX7zjfRlJPi4uPUTe7iBIvcWRRBi4a9wMTshhv9Soe1GsIRw2vKTuJLqlZNlFTEtYw2g15SnGBhgDGlYh2N7PBpTH6zyy2Ql3Qp9Joajzly6XUP8nj01iYY54I9zLJePQe7FSHoN2qUmVsLUTz4tzHPyxVYaAeUphBUztzI4hSDF5Kf73vlijOKLAGk/s1650/POR4.png"
+                        srcset="
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhLsX7zjfRlJPi4uPUTe7iBIvcWRRBi4a9wMTshhv9Soe1GsIRw2vKTuJLqlZNlFTEtYw2g15SnGBhgDGlYh2N7PBpTH6zyy2Ql3Qp9Joajzly6XUP8nj01iYY54I9zLJePQe7FSHoN2qUmVsLUTz4tzHPyxVYaAeUphBUztzI4hSDF5Kf73vlijOKLAGk/s640/POR4.png 640w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhLsX7zjfRlJPi4uPUTe7iBIvcWRRBi4a9wMTshhv9Soe1GsIRw2vKTuJLqlZNlFTEtYw2g15SnGBhgDGlYh2N7PBpTH6zyy2Ql3Qp9Joajzly6XUP8nj01iYY54I9zLJePQe7FSHoN2qUmVsLUTz4tzHPyxVYaAeUphBUztzI4hSDF5Kf73vlijOKLAGk/s1024/POR4.png 1024w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhLsX7zjfRlJPi4uPUTe7iBIvcWRRBi4a9wMTshhv9Soe1GsIRw2vKTuJLqlZNlFTEtYw2g15SnGBhgDGlYh2N7PBpTH6zyy2Ql3Qp9Joajzly6XUP8nj01iYY54I9zLJePQe7FSHoN2qUmVsLUTz4tzHPyxVYaAeUphBUztzI4hSDF5Kf73vlijOKLAGk/s1400/POR4.png 1400w,
+                            https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhLsX7zjfRlJPi4uPUTe7iBIvcWRRBi4a9wMTshhv9Soe1GsIRw2vKTuJLqlZNlFTEtYw2g15SnGBhgDGlYh2N7PBpTH6zyy2Ql3Qp9Joajzly6XUP8nj01iYY54I9zLJePQe7FSHoN2qUmVsLUTz4tzHPyxVYaAeUphBUztzI4hSDF5Kf73vlijOKLAGk/s1650/POR4.png 1650w"
+                        sizes="100vw"
+                        alt="Encuentra el modelo más top del mercado" loading="lazy" decoding="async">
+                    <div class="carousel-caption">
+                        <h2>Buscas lo mas top del mercado?</h2>
+                        <p>Busca tu modelo soñado y nosotros lo traemos</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Indicadores -->
+            <div class="carousel-indicators">
+                <div class="indicator active" data-slide="0"></div>
+                <div class="indicator" data-slide="1"></div>
+                <div class="indicator" data-slide="2"></div>
+                <div class="indicator" data-slide="3"></div>
+            </div>
+        </div>
+    </section>
+    <!-- CAROUSEL SECTION END -->
+
+    <section class="process-section" id="proceso">
+        <div class="section-header">
+            <div>
+                <div class="section-label reveal">Cómo Funciona</div>
+                <h2 class="section-title reveal">Proceso<br>Simple y Rápido</h2>
+            </div>
+        </div>
+
+        <div class="process-grid">
+            <div class="process-card reveal" data-hover>
+                <div class="process-num">01</div>
+                <div class="process-title">Cotiza</div>
+                <div class="process-text">Escríbenos por WhatsApp con el producto que deseas. Te damos precio y tiempo de entrega al instante.</div>
+            </div>
+            <div class="process-card reveal" data-hover>
+                <div class="process-num">02</div>
+                <div class="process-title">Confirma</div>
+                <div class="process-text">Separa tu producto con un abono flexible. Aceptamos múltiples métodos de pago seguros.</div>
+            </div>
+            <div class="process-card reveal" data-hover>
+                <div class="process-num">03</div>
+                <div class="process-title">Importamos</div>
+                <div class="process-text">Compramos directamente en EEUU y gestionamos todo el proceso de importación por ti.</div>
+            </div>
+            <div class="process-card reveal" data-hover>
+                <div class="process-num">04</div>
+                <div class="process-title">Recibe</div>
+                <div class="process-text">Te entregamos tu producto OPENBOX o NUEVO con garantía de 8 meses a punto de entrega previo acuerdo si eres de Lima o envío por ENCOMIENDA SHALOM, OLVA, EMTRAFESA.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonial-section">
+        <div class="quote-mark reveal">"</div>
+        <blockquote class="testimonial-quote reveal">
+            Increíble servicio. Mi <span class="accent">iPhone 15 Pro Max</span> llegó en perfectas condiciones, sellado y original. Los precios son mucho mejores que en tiendas locales. <span class="accent">100% recomendados.</span>
+        </blockquote>
+        <div class="testimonial-author reveal">— Carlos M., Cliente Verificado ★★★★★</div>
+    </section>
+
+    <section class="cta-section" id="contacto">
+        <div class="cta-glow"></div>
+        <h2 class="cta-title reveal">
+            <span class="outline">¿Listo</span> Para<br>
+            <span style="color: var(--accent);">Tu Próximo</span><br>
+            <span class="outline">Dispositivo?</span>
+        </h2>
+        <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
+            <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="btn-primary magnetic reveal" data-hover>
+                <span>Escribir por WhatsApp</span>
+                <span>→</span>
+            </a>
+            <a href="mailto:venta.nexusimport@proton.me" class="btn-outline magnetic reveal" data-hover>
+                <span>Enviar Email</span>
+                <span></span>
+            </a>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="footer-grid">
+            <div class="footer-col">
+                <div class="nav-logo" style="margin-bottom: 16px; font-size: 1.5rem;">Nexus<span style="color: var(--accent);">.</span>Import</div>
+                <p style="font-size: 0.9rem; color: var(--muted); line-height: 1.7; max-width: 320px;">
+                    Tu puente directo a la tecnología premium de Estados Unidos. Importaciones legales, originales y con garantía.
+                </p>
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
+                    <a href="#" class="magnetic" aria-label="Instagram" style="width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">IG</a>
+                    <a href="#" class="magnetic" aria-label="Facebook" style="width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">FB</a>
+                    <a href="#" class="magnetic" aria-label="TikTok" style="width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">TT</a>
+                    <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="magnetic" aria-label="WhatsApp" style="width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">WA</a>
+                </div>
+            </div>
+            <div class="footer-col">
+                <div class="footer-col-title">Navegación</div>
+                <a href="#marcas" class="magnetic">Marcas</a>
+                <a href="#productos" class="magnetic">Productos</a>
+                <a href="#servicios" class="magnetic">Servicios</a>
+                <a href="#proceso" class="magnetic">Cómo Funciona</a>
+            </div>
+            <div class="footer-col">
+                <div class="footer-col-title">Marcas</div>
+                <a href="#" class="magnetic">Apple iPhone</a>
+                <a href="#" class="magnetic">MacBook</a>
+                <a href="#" class="magnetic">Xiaomi</a>
+                <a href="#" class="magnetic">Google Pixel</a>
+                <a href="#" class="magnetic">Smartwatches</a>
+            </div>
+            <div class="footer-col">
+                <div class="footer-col-title">Contacto</div>
+                <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="magnetic">+51 962029292</a>
+                <a href="mailto:venta.nexusimport@proton.me" class="magnetic">venta.nexusimport@proton.me</a>
+                <a href="#" class="magnetic">Únete a nuestros canales digitales</a>
+                <a href="#" class="magnetic">TIKTOK · FACEBOOK · WHATSAPP</a>
+                <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="magnetic" style="color: var(--accent);">¡Escríbeme para más información!</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>© 2024 Nexus Import Global. Todos los derechos reservados.</span>
+            <span>Importaciones Premium desde EEUU</span>
+        </div>
+    </footer>
+
+    <!-- Scroll to Top Button -->
+    <button class="scroll-to-top-btn" id="scrollToTopBtn" aria-label="Volver arriba">
+        <svg viewBox="0 0 24 24">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+    </button>
+
+    <a href="https://api.whatsapp.com/send?phone=51962029292&text=Hola%20mi%20nombre%20es%20..........%20vi%20tu%20pagina%20web%20y%20me%20gustar%C3%ADa%20cotizar%20un%20modelo%20" target="_blank" class="whatsapp-float magnetic" data-hover aria-label="WhatsApp">
+        <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    </a>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollToPlugin.min.js"></script>
+    <script>
+        const loader = document.getElementById('loader');
+        const loaderCount = document.getElementById('loaderCount');
+        const loaderBar = document.getElementById('loaderBar');
+        let count = 0;
+        const loadInterval = setInterval(() => {
+            count += Math.floor(Math.random() * 8) + 2;
+            if (count >= 100) {
+                count = 100; clearInterval(loadInterval);
+                loaderCount.textContent = '100';
+                loaderBar.style.width = '100%';
+                setTimeout(() => {
+                    gsap.to(loader, {
+                        yPercent: -100, duration: 1, ease: 'power4.inOut',
+                        onComplete: () => { loader.style.display = 'none'; animateHero(); }
+                    });
+                }, 400);
+            } else {
+                loaderCount.textContent = count;
+                loaderBar.style.width = count + '%';
+            }
+        }, 60);
+
+        const cursorDot = document.getElementById('cursorDot');
+        const cursorRing = document.getElementById('cursorRing');
+        let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            cursorDot.style.left = mouseX - 4 + 'px';
+            cursorDot.style.top = mouseY - 4 + 'px';
+        });
+
+        function animateCursor() {
+            ringX += (mouseX - ringX) * 0.12;
+            ringY += (mouseY - ringY) * 0.12;
+            cursorRing.style.left = ringX - 20 + 'px';
+            cursorRing.style.top = ringY - 20 + 'px';
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        document.querySelectorAll('[data-hover], a, button').forEach(el => {
+            el.addEventListener('mouseenter', () => cursorRing.classList.add('hover'));
+            el.addEventListener('mouseleave', () => cursorRing.classList.remove('hover'));
+        });
+
+        function animateHero() {
+            const tl = gsap.timeline();
+
+            // Animate decorative image with translation effect
+            tl.to('#heroDecoImg', {
+                opacity: 1,
+                x: '-50%',
+                y: '-50%',
+                duration: 1.5,
+                ease: 'power3.out'
+            })
+            .to('.hero-badge', { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=1')
+            .to('.hero-title .line span', { y: 0, duration: 1.2, ease: 'power4.out', stagger: 0.15 }, '-=0.8')
+            .to('.hero-subtitle span', { y: 0, duration: 0.8, ease: 'power4.out' }, '-=0.6')
+            .to('.hero-actions', { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' }, '-=0.4')
+            .to('.hero-circle', { scale: 1, duration: 1.5, ease: 'power2.out', stagger: 0.1 }, '-=1.2')
+            .to('#scrollIndicator', { opacity: 1, duration: 0.6, ease: 'power2.out' }, '-=0.5');
+
+            // Continuous floating translation effect for decorative image
+            gsap.to('#heroDecoImg', {
+                y: '-48%', // slightly less than -50% to move down
+                x: '-48%', // slightly less than -50% to move right
+                duration: 4,
+                repeat: -1,
+                yoyo: true,
+                ease: 'sine.inOut'
+            });
+
+            gsap.to('#heroDecoImg', {
+                rotation: 1,
+                duration: 5,
+                repeat: -1,
+                yoyo: true,
+                ease: 'sine.inOut'
+            });
+        }
+
+        gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+
+        document.querySelectorAll('.reveal').forEach((el, i) => {
+            gsap.fromTo(el, { opacity: 0, y: 60 }, {
+                opacity: 1, y: 0, duration: 1, ease: 'power3.out',
+                scrollTrigger: { trigger: el, start: 'top 85%', toggleActions: 'play none none none' },
+                delay: (i % 4) * 0.08
+            });
+        });
+
+        document.querySelectorAll('.stat-number').forEach(num => {
+            const target = parseInt(num.dataset.count);
+            const label = num.parentElement.querySelector('.stat-label').textContent;
+            ScrollTrigger.create({
+                trigger: num, start: 'top 80%', once: true,
+                onEnter: () => {
+                    let current = 0;
+                    const duration = 2000;
+                    const startTime = performance.now();
+                    function updateCounter(currentTime) {
+                        const elapsed = currentTime - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        const eased = 1 - Math.pow(1 - progress, 3);
+                        current = Math.round(eased * target);
+                        if (label.includes('%')) { num.textContent = current + '%'; }
+                        else if (target >= 10) { num.textContent = current.toLocaleString() + '+'; }
+                        else { num.textContent = current; }
+                        if (progress < 1) requestAnimationFrame(updateCounter);
+                    }
+                    requestAnimationFrame(updateCounter);
+                }
+            });
+        });
+
+        // Parallax translation on scroll for decorative image
+        gsap.to('#heroDecoImg', {
+            y: '-30%',
+            x: '-30%',
+            ease: 'none',
+            scrollTrigger: {
+                trigger: '.hero',
+                start: 'top top',
+                end: 'bottom top',
+                scrub: 1
+            }
+        });
+
+        gsap.to('.hero-circle', { yPercent: -30, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 1 } });
+
+        document.querySelectorAll('.magnetic').forEach(el => {
+            el.addEventListener('mousemove', (e) => {
+                const rect = el.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                gsap.to(el, { x: x * 0.3, y: y * 0.3, duration: 0.4, ease: 'power2.out' });
+            });
+            el.addEventListener('mouseleave', () => {
+                gsap.to(el, { x: 0, y: 0, duration: 0.6, ease: 'elastic.out(1, 0.5)' });
+            });
+        });
+
+        document.querySelectorAll('.hero-glow, .cta-glow').forEach((orb, i) => {
+            document.addEventListener('mousemove', (e) => {
+                const speed = (i + 1) * 0.02;
+                gsap.to(orb, { x: (e.clientX - window.innerWidth / 2) * speed, y: (e.clientY - window.innerHeight / 2) * speed, duration: 1, ease: 'power2.out' });
+            });
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) gsap.to(window, { scrollTo: { y: target, offsetY: 0 }, duration: 1.2, ease: 'power3.inOut' });
+            });
+        });
+
+        let lastScroll = 0;
+        const navbar = document.getElementById('navbar');
+        const scrollToTopBtn = document.getElementById('scrollToTopBtn');
+        const flashOverlay = document.getElementById('flashOverlay');
+
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+
+            // Navbar hide/show
+            if (currentScroll > lastScroll && currentScroll > 100) gsap.to(navbar, { y: -100, duration: 0.3 });
+            else gsap.to(navbar, { y: 0, duration: 0.3 });
+
+            // Show/Hide Scroll to Top Button
+            if (currentScroll > 500) {
+                scrollToTopBtn.classList.add('visible');
+            } else {
+                scrollToTopBtn.classList.remove('visible');
+            }
+
+            lastScroll = currentScroll;
+        });
+
+        // Scroll to Top with Flash Effect
+        scrollToTopBtn.addEventListener('click', () => {
+            // Trigger flash
+            gsap.to(flashOverlay, {
+                opacity: 0.8,
+                duration: 0.1,
+                ease: 'power2.in',
+                onComplete: () => {
+                    gsap.to(flashOverlay, {
+                        opacity: 0,
+                        duration: 0.6,
+                        ease: 'power2.out'
+                    });
+                }
+            });
+
+            // Smooth scroll to top
+            gsap.to(window, {
+                scrollTo: { y: 0 },
+                duration: 1.5,
+                ease: 'power3.inOut'
+            });
+        });
+
+        document.querySelectorAll('.product-card, .brand-card').forEach(card => {
+            gsap.fromTo(card, { y: 60 }, { y: 0, ease: 'power3.out', scrollTrigger: { trigger: card, start: 'top 90%', end: 'top 40%', scrub: 1 } });
+        });
+
+        gsap.utils.toArray('.service-item').forEach((item, i) => {
+            gsap.fromTo(item, { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.8, ease: 'power3.out', scrollTrigger: { trigger: item, start: 'top 85%', toggleActions: 'play none none none' }, delay: i * 0.08 });
+        });
+
+        gsap.fromTo('.cta-title', { scale: 0.8, opacity: 0 }, { scale: 1, opacity: 1, duration: 1, ease: 'power3.out', scrollTrigger: { trigger: '.cta-section', start: 'top 70%', toggleActions: 'play none none none' } });
+
+        const hero = document.getElementById('hero');
+        for (let i = 0; i < 25; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.top = Math.random() * 100 + '%';
+            hero.appendChild(particle);
+            gsap.to(particle, { y: -200 - Math.random() * 300, x: (Math.random() - 0.5) * 200, opacity: 0, duration: 3 + Math.random() * 4, repeat: -1, delay: Math.random() * 3, ease: 'power1.out' });
+        }
+
+        // Carousel Script
+        const slides = document.querySelectorAll('.carousel-slide');
+        const indicators = document.querySelectorAll('.indicator');
+        let currentSlide = 0;
+        const slideInterval = 8000; // 8 segundos
+
+        // Función para mostrar una diapositiva específica
+        function showSlide(index) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            indicators.forEach(indicator => indicator.classList.remove('active'));
+
+            slides[index].classList.add('active');
+            indicators[index].classList.add('active');
+
+            currentSlide = index;
+        }
+
+        // Función para avanzar al siguiente slide
+        function nextSlide() {
+            const nextIndex = (currentSlide + 1) % slides.length;
+            showSlide(nextIndex);
+        }
+
+        // Iniciar el carrusel automático
+        let carouselTimer = setInterval(nextSlide, slideInterval);
+
+        // Eventos de clic en indicadores
+        indicators.forEach((indicator, index) => {
+            indicator.addEventListener('click', () => {
+                clearInterval(carouselTimer);
+                showSlide(index);
+                carouselTimer = setInterval(nextSlide, slideInterval);
+            });
+        });
+
+        // Pausar al pasar el mouse
+        const carousel = document.querySelector('.carousel');
+        carousel.addEventListener('mouseenter', () => clearInterval(carouselTimer));
+        carousel.addEventListener('mouseleave', () => {
+            carouselTimer = setInterval(nextSlide, slideInterval);
+        });
+    </script>
+</body>
+</html>
