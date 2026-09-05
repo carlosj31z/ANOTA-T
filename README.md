@@ -46,8 +46,9 @@ una API pública para ubicar agencias por geolocalización. Resultado:
 
 **Solución implementada:** un directorio propio y curado en
 `src/data/agencies.js` con direcciones reales (recopiladas de las páginas
-de agencias de cada empresa) en varias ciudades del Perú, con
-coordenadas aproximadas a nivel de distrito/ciudad. El formulario pide
+de agencias de cada empresa) en varias ciudades del Perú — para Olva
+Courier cubre 22 de los 25 departamentos —, con coordenadas aproximadas
+a nivel de distrito/ciudad. El formulario pide
 permiso de geolocalización al navegador (`navigator.geolocation`) y
 ordena las agencias por distancia real (fórmula de Haversine, ver
 `src/utils/geo.js`), mostrando "~X km" junto a cada resultado.
