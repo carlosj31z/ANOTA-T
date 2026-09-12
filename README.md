@@ -92,8 +92,8 @@ de cálculo**:
    - **Retiro en tienda** — solo nombre y fecha.
    - **Envío a domicilio** — dirección, departamento, provincia/distrito,
      referencia y método de pago (Yape/Plin, transferencia, contraentrega).
-   - **Retiro en agencia** (Shalom / Marvisur / Olva Courier) — buscador de
-     agencias con geolocalización (ver abajo) + DNI/CE.
+   - **Retiro en agencia** (Shalom / Emtrafesa / Marvisur / Olva Courier) —
+     buscador de agencias con geolocalización (ver abajo) + DNI/CE.
    - **Otra agencia / encomienda** — nombre y dirección de recojo libres,
      para couriers fuera del catálogo.
 4. Al enviar, se valida todo en tiempo real y se muestra la pantalla de
@@ -117,31 +117,62 @@ una API pública para ubicar agencias por geolocalización. Resultado:
   aunque se consiguieran credenciales, no se podría llamar a esas APIs
   directamente desde el navegador (necesitarían un backend/proxy propio).
 
-**Solución implementada:** un directorio propio y curado en
-`src/data/agencies.js` con ~300 direcciones reales:
+**Solución implementada:** un directorio propio en
+`src/data/agenciesData.js` (archivo **generado**, no editar a mano) con
+**778 agencias reales**, expuesto a la app vía `src/data/agencies.js`:
 
+- **Shalom (496 agencias): directorio oficial nacional completo.** Se
+  cargó del listado oficial de sucursales (documento Word) y se
+  geocodifica por distrito/departamento.
+- **Emtrafesa (45 agencias): directorio oficial completo.** Cargado del
+  documento oficial del courier (cobertura norte del país: La Libertad,
+  Lambayeque, Piura, Cajamarca, Áncash, Tumbes, Lima, etc.).
 - **Marvisur (~170 agencias): directorio oficial 2025 completo.** Se
-  extrajo del PDF oficial "Directorio Marvisur 2025" — cobertura de
-  todos los departamentos donde opera, con dirección y referencia
-  textual de cada sucursal.
-- **Shalom (~70) y Olva (~67):** muestra amplia recopilada de las
-  páginas de agencias de cada empresa y directorios públicos, con
-  fuerte cobertura de Lima por distrito y de las principales ciudades
-  (Arequipa, Trujillo, Cusco, Chiclayo, Piura, Huancayo, Tacna, etc.).
+  extrajo del PDF oficial "Directorio Marvisur 2025".
+- **Olva (~67):** muestra amplia recopilada de las páginas de agencias y
+  directorios públicos, con fuerte cobertura de Lima por distrito y de
+  las principales ciudades.
 
-Las coordenadas son aproximadas a nivel de distrito/ciudad. El
-formulario pide permiso de geolocalización al navegador
+Las coordenadas son aproximadas a nivel de distrito/ciudad
+(`src/data/peruGeo.js` geocodifica por distrito → provincia →
+departamento). El formulario pide permiso de geolocalización al navegador
 (`navigator.geolocation`) y ordena las agencias por distancia real
 (fórmula de Haversine, ver `src/utils/geo.js`), mostrando "~X km" junto
 a cada resultado.
 
-> Nota: Marvisur está al 100% de su directorio oficial. Shalom y Olva
-> siguen siendo una muestra representativa (Shalom lista 400+ agencias
-> a nivel nacional): sus sitios oficiales y los agregadores (latam5s,
-> shalom.com.pe, olvacourier.com) no exponen API pública ni permiten
-> scraping desde el navegador, así que ese dataset se amplía por
-> búsqueda. Para tenerlos completos basta con subir sus directorios
-> oficiales (PDF/CSV), igual que se hizo con Marvisur.
+> Nota: Shalom, Emtrafesa y Marvisur están al 100% de sus directorios
+> oficiales. Solo Olva sigue siendo una muestra representativa: sus
+> sitios y los agregadores no exponen API pública ni permiten scraping
+> desde el navegador. Para completarlo basta con subir su directorio
+> oficial desde el panel de administrador (ver abajo), igual que se hizo
+> con los otros tres.
+
+## Cargar/alimentar la base de datos (panel de administrador)
+
+El panel de administrador tiene una pestaña **"Base de datos"**
+(`src/components/AgencyManager.jsx`) para sumar agencias propias al
+directorio oficial sin tocar el código:
+
+- **Resumen por courier:** cuántas agencias oficiales (baked-in) y cuántas
+  propias hay cargadas de cada uno.
+- **Agregar una agencia:** formulario con courier, departamento, provincia,
+  distrito, zona, dirección, referencia y lat/lng opcionales. Si no pones
+  coordenadas, se calculan por distrito/departamento para el orden por
+  cercanía.
+- **Importar en lote:** pega o **sube un archivo** en tres formatos —
+  *Listado* (bloques de 3 líneas como el documento oficial de Shalom),
+  *CSV* (`courier,department,province,district,zone,address,reference[,lat,lng]`)
+  o *JSON* (arreglo de objetos). Un selector fija el courier por defecto
+  para las filas que no lo traigan.
+- **Exportar / Vaciar:** descarga las agencias propias como JSON (para
+  respaldarlas o llevarlas a otro equipo) o bórralas.
+
+> Las agencias propias se guardan en `localStorage` de **ese dispositivo**
+> (clave `anotate-custom-agencies`) y se combinan con el directorio oficial
+> en `getAgenciesForCourier()`. Al ser una app estática no hay backend
+> compartido: para que todos los dispositivos las vean, agrégalas al
+> archivo generado o intégralas por export/import. El directorio oficial
+> baked-in sí es global para todos los usuarios.
 
 Esto es una aproximación honesta, no una integración en vivo. Si más
 adelante consigues credenciales de Shalom Pro o de Olva, basta con

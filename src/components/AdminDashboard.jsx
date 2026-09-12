@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
+import AgencyManager from './AgencyManager'
 import { clearLog, getEndpoint, getLog, setEndpoint } from '../utils/telemetry'
-import { IconChart, IconDownload, IconLogout, IconRefresh, IconStore, IconTrash } from './icons'
+import { IconBox, IconChart, IconDownload, IconLogout, IconRefresh, IconStore, IconTrash } from './icons'
 
 function fmtDate(iso) {
   try {
@@ -36,6 +37,7 @@ function toCsv(events) {
 }
 
 export default function AdminDashboard({ onLogout, onOpenForm }) {
+  const [tab, setTab] = useState('activaciones')
   const [log, setLog] = useState(() => getLog())
   const [endpoint, setEndpointState] = useState(() => getEndpoint())
   const [savedMsg, setSavedMsg] = useState(false)
@@ -89,16 +91,18 @@ export default function AdminDashboard({ onLogout, onOpenForm }) {
             <IconChart className="h-5 w-5 text-amber-300" />
             Panel de administrador
           </h1>
-          <p className="mt-0.5 text-xs text-gray-400">Registro de activaciones y dispositivos</p>
+          <p className="mt-0.5 text-xs text-gray-400">Activaciones, dispositivos y base de datos de agencias</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={refresh}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-200 transition hover:bg-white/10"
-          >
-            <IconRefresh className="h-4 w-4" /> Actualizar
-          </button>
+          {tab === 'activaciones' && (
+            <button
+              type="button"
+              onClick={refresh}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-200 transition hover:bg-white/10"
+            >
+              <IconRefresh className="h-4 w-4" /> Actualizar
+            </button>
+          )}
           <button
             type="button"
             onClick={onOpenForm}
@@ -116,6 +120,36 @@ export default function AdminDashboard({ onLogout, onOpenForm }) {
         </div>
       </div>
 
+      {/* Pestañas */}
+      <div className="flex gap-2 border-b border-white/10">
+        <button
+          type="button"
+          onClick={() => setTab('activaciones')}
+          className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition ${
+            tab === 'activaciones'
+              ? 'border-amber-400 text-white'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <IconChart className="h-4 w-4" /> Activaciones
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('datos')}
+          className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition ${
+            tab === 'datos'
+              ? 'border-amber-400 text-white'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <IconBox className="h-4 w-4" /> Base de datos
+        </button>
+      </div>
+
+      {tab === 'datos' && <AgencyManager />}
+
+      {tab === 'activaciones' && (
+      <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Activaciones" value={stats.total} accent="text-white" />
         <StatTile label="Dispositivos" value={stats.devices} accent="text-cyan-300" />
@@ -253,6 +287,8 @@ export default function AdminDashboard({ onLogout, onOpenForm }) {
         acepta el permiso del navegador. Esta telemetría es de activación de licencias (anti-piratería); al
         ser una app estática, la vista centralizada real requiere el endpoint configurado arriba.
       </p>
+      </>
+      )}
     </div>
   )
 }

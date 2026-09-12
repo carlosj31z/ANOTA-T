@@ -11,6 +11,7 @@ const DELIVERY_OPTIONS = [
   { value: 'store', label: 'Retiro en tienda' },
   { value: 'home', label: 'Envío a domicilio' },
   { value: 'agency:shalom', label: `Retiro en agencia ${COURIERS.shalom.label}` },
+  { value: 'agency:emtrafesa', label: `Retiro en agencia ${COURIERS.emtrafesa.label}` },
   { value: 'agency:marvisur', label: `Retiro en agencia ${COURIERS.marvisur.label}` },
   { value: 'agency:olva', label: `Retiro en agencia ${COURIERS.olva.label}` },
   { value: 'agency:encomienda', label: 'Retiro en otra agencia / encomienda' },
@@ -129,7 +130,7 @@ export default function ShippingForm({ merchant, onSubmit }) {
 
   const isAgencyFlow = form.deliveryMethod.startsWith('agency:')
   const courierId = isAgencyFlow ? form.deliveryMethod.split(':')[1] : null
-  const isKnownCourier = ['shalom', 'marvisur', 'olva'].includes(courierId)
+  const isKnownCourier = ['shalom', 'emtrafesa', 'marvisur', 'olva'].includes(courierId)
   const isHome = form.deliveryMethod === 'home'
   const isStore = form.deliveryMethod === 'store'
 
