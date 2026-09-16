@@ -1,5 +1,3 @@
-import { VALID_SERIALS } from '../data/serials'
-
 const SERIAL_KEY = 'anotate-unlocked-serial'
 const ROLE_KEY = 'anotate-access-role'
 
@@ -14,15 +12,16 @@ export function isValidAdmin(user, password) {
   return String(user).trim().toLowerCase() === ADMIN_USER && String(password) === ADMIN_PASSWORD
 }
 
-export function isValidSerial(code) {
-  return VALID_SERIALS.has(String(code).trim().toUpperCase())
-}
-
-/** Serial ya desbloqueado en este dispositivo, o null si no hay uno válido. */
-export function getUnlockedSerial() {
+/**
+ * Serial guardado en este dispositivo SIN re-validar contra Supabase (solo
+ * lectura síncrona, para el estado inicial). La validación real —que puede
+ * revocar el acceso si el admin desactivó ese cliente— se hace de forma
+ * asíncrona con `checkClientSerial()` de utils/supabaseClients.js; ver
+ * App.jsx.
+ */
+export function getStoredSerial() {
   try {
-    const stored = localStorage.getItem(SERIAL_KEY)
-    return stored && isValidSerial(stored) ? stored : null
+    return localStorage.getItem(SERIAL_KEY) || null
   } catch {
     return null
   }
@@ -46,21 +45,23 @@ export function setAdminUnlocked() {
 }
 
 /**
- * Rol con el que ya está desbloqueado el dispositivo, o null si aún no.
- * 'admin' si entró un administrador; 'merchant' si hay un serial válido.
+ * Rol guardado en este dispositivo SIN re-validar (lectura síncrona, para
+ * el arranque de la app). 'admin' se confía de inmediato; 'merchant' debe
+ * re-confirmarse de forma asíncrona (ver arriba) porque el serial pudo
+ * haber sido retirado por el administrador desde entonces.
  */
-export function getAccessRole() {
+export function getStoredRole() {
   try {
     const role = localStorage.getItem(ROLE_KEY)
     if (role === 'admin') return 'admin'
-    if (getUnlockedSerial()) return 'merchant'
+    if (role === 'merchant' && getStoredSerial()) return 'merchant'
     return null
   } catch {
     return null
   }
 }
 
-/** Cierra la sesión de este dispositivo (vuelve a pedir rol/credenciales). */
+/** Cierra la sesión de este dispositivo (vuelve a pedir credenciales). */
 export function clearAccess() {
   try {
     localStorage.removeItem(ROLE_KEY)

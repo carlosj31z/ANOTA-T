@@ -5,28 +5,31 @@ React + Vite + Tailwind CSS. Cada tienda comparte un enlace con
 `?merchant=<id>`; el cliente completa sus datos y termina enviando el
 resumen por WhatsApp.
 
-## Portal de acceso (rol: administrador / negociante)
+## Portal de acceso (link normal = cliente, `/admin` = administrador)
 
-Antes de mostrar cualquier contenido, la app abre una ventana de acceso
-(`src/components/AccessGate.jsx`) que pregunta **¿Cómo deseas ingresar?**
-con dos opciones:
+Ya no hay un selector "¿Cómo deseas ingresar?": la URL decide qué flujo
+se muestra (`src/App.jsx` lee `window.location.pathname`), un click menos
+para cada quien:
 
-- **Administrador** → pide usuario y contraseña. Las credenciales están
-  en `src/utils/serial.js` (`ADMIN_USER` / `ADMIN_PASSWORD`).
-- **Negociante** → pide una clave serial. Solo los códigos listados en
-  `src/data/serials.js` desbloquean el formulario; cualquier otro valor
-  muestra un error y no deja avanzar.
+- **Link normal** (`tu-dominio.com/`, con o sin `?merchant=id`) → pide la
+  clave serial del cliente/negociante directamente.
+- **`tu-dominio.com/admin`** → pide usuario y contraseña de administrador
+  directamente. Las credenciales están en `src/utils/serial.js`
+  (`ADMIN_USER` / `ADMIN_PASSWORD`).
 
-Al validar (admin o serial), el rol se guarda en `localStorage`
-(`anotate-access-role`) para no volver a pedirlo en ese dispositivo — si
-luego quitas un serial de la lista, ese dispositivo se vuelve a bloquear
-en la siguiente carga.
+Al validar, el rol se guarda en `localStorage` para no volver a pedirlo en
+ese dispositivo. Para el rol **admin** eso basta (se confía de inmediato);
+para el rol **cliente**, el serial se **re-valida contra Supabase en cada
+carga de la página** — si el administrador lo retira desde la pestaña
+"Clientes" del panel, ese dispositivo se bloquea solo, sin esperar a que
+alguien borre su `localStorage` a mano. Ver "Clientes y seriales
+(Supabase)" más abajo.
 
-> Es una barrera del lado del cliente (no hay backend que la respalde),
-> pensada para repartir acceso por código/credencial, no como seguridad
-> real: cualquiera que inspeccione el bundle puede leer los seriales y la
-> contraseña de administrador. Para seguridad real se necesita validar
-> contra un servidor.
+> Es una barrera del lado del cliente (no hay backend propio de
+> autenticación), pensada para repartir acceso por código/credencial, no
+> como seguridad real: la contraseña de administrador viaja en el bundle y
+> cualquiera que lo inspeccione puede leerla. La lista de seriales, en
+> cambio, ya no vive en el bundle — ver abajo.
 
 ## Panel de administrador y telemetría (anti-piratería)
 
@@ -84,10 +87,11 @@ de cálculo**:
    `src/data/merchants.js`. Si no existe o falta el parámetro, se usa la
    tienda por defecto (`march-usa`) — el formulario siempre es usable, con
    o sin ese parámetro.
-2. Las fechas de envío se calculan cada `shippingIntervalDays` días (por
-   defecto 2) a partir de la fecha del dispositivo del cliente; si ya
-   pasó la hora de corte (`cutoffHour`) de hoy, todo el calendario se
-   corre un día más.
+2. Las fechas de envío son **continuas** (todos los días, sin saltos) a
+   partir de mañana según la fecha del dispositivo del cliente; si ya pasó
+   la hora de corte (`cutoffHour`) de hoy, arrancan un día más tarde. Se
+   eligen en un **mini calendario** (`src/components/DatePicker.jsx`), no
+   en una lista desplegable.
 3. El cliente elige cómo quiere recibir su pedido:
    - **Retiro en tienda** — solo nombre y fecha.
    - **Envío a domicilio** — dirección, departamento, provincia/distrito,
@@ -279,6 +283,112 @@ reemplazar `getAgenciesForCourier()` en `src/data/agencies.js` por una
 llamada a tu backend — el resto de la app (búsqueda, orden por
 distancia, resumen de WhatsApp) ya espera ese mismo formato de objeto
 (`{ id, label, address, reference, lat, lng }`) y no necesita cambios.
+
+## Clientes y seriales (Supabase)
+
+Antes, los seriales que desbloquean el formulario vivían en una lista fija
+en `src/data/serials.js` — para sumar o quitar un cliente había que editar
+código y volver a desplegar. Ahora eso se administra desde la pestaña
+**"Clientes"** del panel de administrador, guardado en la misma base de
+datos Supabase que las agencias.
+
+A diferencia de la tabla `agencies` (pública a propósito), `clients` **no
+tiene ninguna política pública de lectura ni escritura** — si la tuviera,
+cualquiera podría listar todos los seriales válidos con una sola llamada a
+la API pública. Toda la gestión pasa por funciones de Postgres protegidas
+con una **clave de administrador que vive solo en la base de datos** (a
+diferencia de `ADMIN_PASSWORD` en `serial.js`, esta nunca viaja en el
+bundle del navegador). Corre esto en el **SQL Editor** de tu proyecto
+Supabase (el mismo de la sección anterior), después del SQL de `agencies`:
+
+```sql
+create table if not exists public.clients (
+  id bigint generated always as identity primary key,
+  serial text not null unique,
+  name text,
+  notes text,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.clients enable row level security;
+-- Sin políticas públicas: nadie puede leer ni escribir esta tabla
+-- directamente, solo a través de las funciones de abajo.
+
+create table if not exists public.app_settings (
+  key text primary key,
+  value text not null
+);
+alter table public.app_settings enable row level security;
+
+-- Clave de administrador: CAMBIA 'pon-aqui-una-clave-larga' antes de correr esto.
+insert into public.app_settings (key, value) values ('admin_secret', 'pon-aqui-una-clave-larga')
+  on conflict (key) do update set value = excluded.value;
+
+-- Público: solo responde true/false, nunca expone la lista de seriales.
+create or replace function public.check_client_serial(p_serial text)
+returns boolean language sql security definer set search_path = public as $$
+  select exists (select 1 from public.clients where serial = p_serial and active = true);
+$$;
+grant execute on function public.check_client_serial(text) to anon, authenticated;
+
+-- Protegidas con la clave de admin (nunca en el bundle del navegador).
+create or replace function public.admin_list_clients(p_secret text)
+returns setof public.clients language plpgsql security definer set search_path = public as $$
+begin
+  if p_secret is null or p_secret <> (select value from public.app_settings where key = 'admin_secret') then
+    raise exception 'unauthorized';
+  end if;
+  return query select * from public.clients order by created_at desc;
+end; $$;
+grant execute on function public.admin_list_clients(text) to anon, authenticated;
+
+create or replace function public.admin_add_client(p_secret text, p_serial text, p_name text, p_notes text default null)
+returns public.clients language plpgsql security definer set search_path = public as $$
+declare r public.clients;
+begin
+  if p_secret is null or p_secret <> (select value from public.app_settings where key = 'admin_secret') then
+    raise exception 'unauthorized';
+  end if;
+  insert into public.clients (serial, name, notes) values (upper(trim(p_serial)), p_name, p_notes) returning * into r;
+  return r;
+end; $$;
+grant execute on function public.admin_add_client(text,text,text,text) to anon, authenticated;
+
+create or replace function public.admin_set_client_active(p_secret text, p_id bigint, p_active boolean)
+returns public.clients language plpgsql security definer set search_path = public as $$
+declare r public.clients;
+begin
+  if p_secret is null or p_secret <> (select value from public.app_settings where key = 'admin_secret') then
+    raise exception 'unauthorized';
+  end if;
+  update public.clients set active = p_active where id = p_id returning * into r;
+  return r;
+end; $$;
+grant execute on function public.admin_set_client_active(text,bigint,boolean) to anon, authenticated;
+
+create or replace function public.admin_delete_client(p_secret text, p_id bigint)
+returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if p_secret is null or p_secret <> (select value from public.app_settings where key = 'admin_secret') then
+    raise exception 'unauthorized';
+  end if;
+  delete from public.clients where id = p_id;
+  return true;
+end; $$;
+grant execute on function public.admin_delete_client(text,bigint) to anon, authenticated;
+```
+
+Después, en el panel → pestaña **Clientes**, pega esa misma clave (el
+campo "Clave de administrador") y ya puedes agregar/activar/desactivar/
+eliminar clientes. El cambio aplica **de inmediato**: el formulario
+re-valida el serial guardado contra Supabase en cada carga, así que
+desactivar un cliente bloquea su dispositivo sin esperar nada más.
+
+> Si Supabase no está configurado (o se cae la red), el login de cliente
+> cae de respaldo a la lista fija `VALID_SERIALS` de `src/data/serials.js`
+> — así nadie se queda sin poder entrar mientras configuras esto. Una vez
+> que uses Supabase como fuente de verdad, esa lista queda como respaldo
+> de emergencia; no hace falta borrarla.
 
 ## Agregar o editar una tienda (merchant)
 

@@ -71,6 +71,22 @@ export function IconChevronDown({ className }) {
   )
 }
 
+export function IconChevronLeft({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  )
+}
+
+export function IconChevronRight({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  )
+}
+
 export function IconCopy({ className }) {
   return (
     <svg className={className} {...base()}>
@@ -169,6 +185,27 @@ export function IconTag({ className }) {
     <svg className={className} {...base()}>
       <path d="M12.5 3H6a3 3 0 0 0-3 3v6.5a1 1 0 0 0 .29.7l9.5 9.5a1 1 0 0 0 1.42 0l7.5-7.5a1 1 0 0 0 0-1.42l-9.5-9.5a1 1 0 0 0-.71-.28Z" />
       <circle cx="8.5" cy="8.5" r="1.5" />
+    </svg>
+  )
+}
+
+export function IconUsers({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <circle cx="9" cy="8" r="3.25" />
+      <path d="M3.5 20c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6" />
+      <path d="M16 8.5a2.75 2.75 0 1 0 0-5.5" />
+      <path d="M15 14.25c2.5.5 4.5 2.75 4.5 5.75" />
+    </svg>
+  )
+}
+
+export function IconKey({ className }) {
+  return (
+    <svg className={className} {...base()}>
+      <circle cx="8" cy="15" r="4.25" />
+      <path d="M11 12 19.5 3.5" />
+      <path d="M16 7l2.5 2.5M19 4l2 2" />
     </svg>
   )
 }

@@ -3,7 +3,7 @@ import { COURIERS } from '../data/agencies'
 import { PAYMENT_LABELS } from '../data/paymentMethods'
 import { downloadShippingLabel } from '../utils/label'
 import { buildWhatsAppSummary, buildWhatsAppUrl } from '../utils/whatsapp'
-import { IconCheck, IconCopy, IconTag, IconWhatsapp } from './icons'
+import { IconArrowLeft, IconCheck, IconCopy, IconTag, IconWhatsapp } from './icons'
 
 function copyText(text) {
   if (navigator.clipboard?.writeText) {
@@ -35,7 +35,7 @@ function Row({ icon, children }) {
   )
 }
 
-export default function SuccessScreen({ form, merchant }) {
+export default function SuccessScreen({ form, merchant, onNewOrder, onBackToPanel }) {
   const message = buildWhatsAppSummary(form, merchant)
   const whatsappUrl = buildWhatsAppUrl(merchant.whatsappNumber, message)
   const [copied, setCopied] = useState(false)
@@ -159,6 +159,25 @@ export default function SuccessScreen({ form, merchant }) {
         {labelSaved ? 'Etiqueta descargada' : 'Descargar etiqueta para imprimir'}
         {labelSaved ? <IconCheck className="h-4.5 w-4.5" /> : <IconTag className="h-4.5 w-4.5" />}
       </button>
+
+      <div className="mt-3 flex w-full items-center gap-2.5">
+        {onBackToPanel && (
+          <button
+            type="button"
+            onClick={onBackToPanel}
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-[13px] font-semibold text-gray-300 transition hover:bg-white/10 hover:text-white active:scale-[0.99]"
+          >
+            <IconArrowLeft className="h-4 w-4" /> Panel
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onNewOrder}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-[14px] font-bold text-gray-200 transition hover:bg-white/10 hover:text-white active:scale-[0.99]"
+        >
+          + Nuevo pedido
+        </button>
+      </div>
     </div>
   )
 }

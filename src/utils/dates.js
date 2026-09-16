@@ -8,17 +8,17 @@ export function isPastCutoff(merchant, now = new Date()) {
 }
 
 /**
- * Next available shipping dates, cada N días (por defecto 2) contados desde
- * la fecha del dispositivo (`now`), no desde días de semana fijos. Si ya
- * pasó la hora de corte de hoy, todo el calendario se corre un día más.
+ * Fechas de envío disponibles: TODOS los días (continuos, sin saltos),
+ * contados desde la fecha del dispositivo (`now`) hasta `weeksAhead`
+ * semanas adelante. Si ya pasó la hora de corte de hoy, arranca un día
+ * más tarde.
  */
 export function generateAvailableDates(merchant, now = new Date()) {
-  const intervalDays = merchant.shippingIntervalDays ?? 2
   const totalDays = (merchant.weeksAhead ?? 2) * 7
-  const startOffset = intervalDays + (isPastCutoff(merchant, now) ? 1 : 0)
+  const startOffset = 1 + (isPastCutoff(merchant, now) ? 1 : 0)
   const results = []
 
-  for (let offset = startOffset; offset <= totalDays; offset += intervalDays) {
+  for (let offset = startOffset; offset <= totalDays; offset += 1) {
     const d = new Date(now)
     d.setHours(0, 0, 0, 0)
     d.setDate(d.getDate() + offset)

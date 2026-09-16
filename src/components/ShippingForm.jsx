@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import AgencySearch from './AgencySearch'
+import DatePicker from './DatePicker'
 import { IconCalendar, IconChevronDown } from './icons'
 import { getKnownCouriers } from '../data/agencies'
 import { DEPARTMENTS } from '../data/departments'
@@ -379,18 +380,15 @@ export default function ShippingForm({ merchant, onSubmit }) {
             onChange={(e) => set('notes', e.target.value)}
           />
 
-          <SelectField
-            label="Fecha de Envío"
+          <DatePicker
             required
             placeholder="Elige una fecha…"
-            icon={IconCalendar}
             hint="(El envío puede estar en 24 a 48 horas, consulta siempre la página web del establecimiento)"
-            value={form.shippingDate?.value ?? ''}
-            onChange={(e) => {
-              const picked = availableDates.find((d) => d.value === e.target.value) ?? null
+            value={form.shippingDate}
+            onChange={(picked) => {
               set('shippingDate', picked)
+              markTouched('shippingDate')
             }}
-            onBlur={() => markTouched('shippingDate')}
             error={showError('shippingDate') ? errors.shippingDate : null}
             options={availableDates}
           />

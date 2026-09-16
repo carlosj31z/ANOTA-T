@@ -56,13 +56,14 @@ const TEMPLATE_HEADERS = [
 ]
 
 const TEMPLATE_EXAMPLE_ROWS = [
-  ['shalom', '', 'Lima', 'Lima', 'Miraflores', 'Av. Larco', 'Av. Larco 123', 'Frente al parque', '', ''],
+  ['shalom', '', 'Lima', 'Lima', 'Miraflores', 'Av. Larco', 'Av. Larco 123', 'Across from the park', '', ''],
   ['rapidito', 'Rapidito Courier', 'Arequipa', 'Arequipa', 'Cayma', 'Av. Ejercito', 'Av. Ejercito 456', '', -16.38, -71.55],
 ]
 
 /**
- * Genera y descarga la plantilla .xlsx. `knownCouriers` es la lista actual
- * de couriers ({id,label}) para incluirla como referencia en la 2da hoja.
+ * Genera y descarga la plantilla .xlsx (encabezados e instrucciones en
+ * inglés). `knownCouriers` es la lista actual de couriers ({id,label}) para
+ * incluirla como referencia en la 2da hoja.
  */
 export async function downloadAgencyTemplate(knownCouriers = []) {
   const XLSX = await import('xlsx')
@@ -72,32 +73,32 @@ export async function downloadAgencyTemplate(knownCouriers = []) {
   ws['!cols'] = TEMPLATE_HEADERS.map((h) => ({ wch: Math.max(12, h.length + 4) }))
 
   const instructions = [
-    ['Cómo llenar esta plantilla'],
+    ['How to fill in this template'],
     [''],
-    ['courier', 'Código corto del courier, en minúsculas y sin espacios (ej: "shalom", "rapidito"). Obligatorio.'],
-    ['courier_label', 'Nombre para mostrar SOLO si "courier" es una empresa nueva (ej: "Rapidito Courier"). Si el código ya existe, déjalo vacío.'],
-    ['department / province / district', 'Ubicación de la agencia (como aparecen en el directorio del courier).'],
-    ['zone', 'Zona o referencia corta para el nombre que ve el cliente (si lo dejas vacío, se usa el distrito).'],
-    ['address', 'Dirección completa. Obligatorio.'],
-    ['reference', 'Referencia adicional (opcional): "frente a...", "a una cuadra de...".'],
-    ['lat / lng', 'Coordenadas (opcional). Si las dejas vacías, se calculan automáticamente por distrito/departamento.'],
+    ['courier', 'Short courier code, lowercase, no spaces (e.g. "shalom", "rapidito"). Required.'],
+    ['courier_label', 'Display name — ONLY if "courier" is a brand-new company (e.g. "Rapidito Courier"). Leave empty if the code already exists.'],
+    ['department / province / district', 'Branch location (as listed in the courier\'s own directory).'],
+    ['zone', 'Short zone/landmark shown to the client as the branch name (defaults to the district if left empty).'],
+    ['address', 'Full street address. Required.'],
+    ['reference', 'Extra landmark reference (optional): "across from...", "one block from...".'],
+    ['lat / lng', 'Coordinates (optional). Left empty, they are auto-computed from district/department.'],
     [''],
-    ['Couriers que ya existen (usa su código tal cual para sumar agencias a esa empresa):'],
+    ['Couriers that already exist (use their code as-is to add branches to that company):'],
     ...knownCouriers.map((c) => [c.id, c.label]),
   ]
   const wsInfo = XLSX.utils.aoa_to_sheet(instructions)
   wsInfo['!cols'] = [{ wch: 28 }, { wch: 70 }]
 
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Agencias')
-  XLSX.utils.book_append_sheet(wb, wsInfo, 'Instrucciones')
+  XLSX.utils.book_append_sheet(wb, ws, 'Agencies')
+  XLSX.utils.book_append_sheet(wb, wsInfo, 'Instructions')
 
   const arrayBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
   const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'anotate-plantilla-agencias.xlsx'
+  a.download = 'anotate-agencies-template.xlsx'
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -126,7 +127,7 @@ export async function parseAgencyExcelFile(file) {
     throw new Error(`No se pudo leer el Excel: ${err.message}`)
   }
 
-  const sheetName = workbook.SheetNames.find((n) => /agencia/i.test(n)) || workbook.SheetNames[0]
+  const sheetName = workbook.SheetNames.find((n) => /agenc/i.test(n)) || workbook.SheetNames[0]
   const sheet = workbook.Sheets[sheetName]
   if (!sheet) throw new Error('El archivo no tiene hojas legibles.')
 

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import AgencyManager from './AgencyManager'
+import ClientManager from './ClientManager'
 import { clearLog, getEndpoint, getLog, setEndpoint } from '../utils/telemetry'
-import { IconBox, IconChart, IconDownload, IconLogout, IconRefresh, IconStore, IconTrash } from './icons'
+import { IconBox, IconChart, IconDownload, IconLogout, IconRefresh, IconStore, IconTrash, IconUsers } from './icons'
 
 function fmtDate(iso) {
   try {
@@ -144,9 +145,21 @@ export default function AdminDashboard({ onLogout, onOpenForm }) {
         >
           <IconBox className="h-4 w-4" /> Base de datos
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('clientes')}
+          className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold transition ${
+            tab === 'clientes'
+              ? 'border-amber-400 text-white'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <IconUsers className="h-4 w-4" /> Clientes
+        </button>
       </div>
 
       {tab === 'datos' && <AgencyManager />}
+      {tab === 'clientes' && <ClientManager />}
 
       {tab === 'activaciones' && (
       <>

@@ -132,7 +132,14 @@ export function renderLabelCanvas(form, merchant) {
 
   if (form.deliveryMethod === 'agency') {
     ctx.font = '700 30px Arial'
-    y = drawWrapped(ctx, COURIERS[form.courier]?.label ?? form.courier ?? '', MARGIN, y, contentWidth, 38)
+    y = drawWrapped(
+      ctx,
+      COURIERS[form.courier]?.label ?? form.agency?.courierLabel ?? form.courier ?? '',
+      MARGIN,
+      y,
+      contentWidth,
+      38,
+    )
     ctx.font = '400 28px Arial'
     y += 8
     y = drawWrapped(ctx, form.agency?.label ?? '', MARGIN, y, contentWidth, 36)
