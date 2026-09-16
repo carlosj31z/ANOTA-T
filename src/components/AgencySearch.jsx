@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getAgenciesForCourier } from '../data/agencies'
 import { formatDistance, getCurrentPosition, sortByDistance } from '../utils/geo'
+import { fetchSupabaseAgenciesForCourier } from '../utils/supabaseAgencies'
 import { IconPin, IconSearch, IconX } from './icons'
 
 function normalize(s) {
@@ -11,6 +12,10 @@ function normalize(s) {
     .toLowerCase()
 }
 
+// Referencia estable para "todavía sin resultados de Supabase" — evita que
+// el useMemo de más abajo vea una dependencia distinta en cada render.
+const EMPTY_AGENCIES = []
+
 export default function AgencySearch({ courierId, value, onChange, error }) {
   const [query, setQuery] = useState(value?.label ?? '')
   const [open, setOpen] = useState(false)
@@ -19,8 +24,25 @@ export default function AgencySearch({ courierId, value, onChange, error }) {
   const [geoLoading, setGeoLoading] = useState(false)
   const [geoError, setGeoError] = useState(null)
   const [rect, setRect] = useState(null)
+  // Agencias compartidas en Supabase para el courier actual — se agregan
+  // aparte porque implican una llamada de red. Guardamos con qué courierId
+  // corresponden para no mostrar resultados de un courier anterior mientras
+  // responde el fetch del nuevo (en vez de "limpiar" el estado a mano).
+  const [supabaseState, setSupabaseState] = useState({ courierId: null, rows: [] })
   const containerRef = useRef(null)
   const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    let alive = true
+    fetchSupabaseAgenciesForCourier(courierId).then((rows) => {
+      if (alive) setSupabaseState({ courierId, rows })
+    })
+    return () => {
+      alive = false
+    }
+  }, [courierId])
+
+  const supabaseAgencies = supabaseState.courierId === courierId ? supabaseState.rows : EMPTY_AGENCIES
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -47,7 +69,7 @@ export default function AgencySearch({ courierId, value, onChange, error }) {
   }, [open])
 
   const results = useMemo(() => {
-    const all = getAgenciesForCourier(courierId)
+    const all = [...getAgenciesForCourier(courierId), ...supabaseAgencies]
     const q = query.trim()
     let list = nearMe && userLoc ? sortByDistance(all, userLoc) : all
 
@@ -60,7 +82,7 @@ export default function AgencySearch({ courierId, value, onChange, error }) {
       list = list.slice(0, 6)
     }
     return list.slice(0, 8)
-  }, [courierId, query, nearMe, userLoc])
+  }, [courierId, query, nearMe, userLoc, supabaseAgencies])
 
   async function handleUseLocation() {
     setGeoLoading(true)

@@ -31,6 +31,7 @@ function write(list) {
 export function normalizeAgency(raw, index = 0) {
   const a = {
     courier: String(raw.courier || '').trim().toLowerCase(),
+    courierLabel: raw.courierLabel ? String(raw.courierLabel).trim() : '',
     department: String(raw.department || '').trim(),
     province: String(raw.province || '').trim(),
     district: String(raw.district || '').trim(),
@@ -61,6 +62,17 @@ export function getCustomAgencies() {
 
 export function getCustomForCourier(courierId) {
   return read().filter((a) => a.courier === courierId)
+}
+
+/** Couriers nuevos (no incluidos en `knownIds`) detectados entre las agencias locales. */
+export function getCustomCouriers(knownIds = new Set()) {
+  const seen = new Map()
+  for (const a of read()) {
+    if (!a.courier || knownIds.has(a.courier) || seen.has(a.courier)) continue
+    const lbl = a.courierLabel?.trim() || a.courier.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    seen.set(a.courier, { id: a.courier, label: lbl })
+  }
+  return [...seen.values()]
 }
 
 /** Agrega varias entradas crudas. Devuelve cuántas se agregaron. */

@@ -153,29 +153,125 @@ a cada resultado.
 ## Cargar/alimentar la base de datos (panel de administrador)
 
 El panel de administrador tiene una pestaña **"Base de datos"**
-(`src/components/AgencyManager.jsx`) para sumar agencias propias al
-directorio oficial sin tocar el código:
+(`src/components/AgencyManager.jsx`) para sumar agencias — y empresas
+courier **completamente nuevas** — sin tocar el código ni depender de subir
+archivos por chat:
 
-- **Resumen por courier:** cuántas agencias oficiales (baked-in) y cuántas
-  propias hay cargadas de cada uno.
-- **Agregar una agencia:** formulario con courier, departamento, provincia,
-  distrito, zona, dirección, referencia y lat/lng opcionales. Si no pones
-  coordenadas, se calculan por distrito/departamento para el orden por
-  cercanía.
-- **Importar en lote:** pega o **sube un archivo** en tres formatos —
-  *Listado* (bloques de 3 líneas como el documento oficial de Shalom),
-  *CSV* (`courier,department,province,district,zone,address,reference[,lat,lng]`)
-  o *JSON* (arreglo de objetos). Un selector fija el courier por defecto
-  para las filas que no lo traigan.
-- **Exportar / Vaciar:** descarga las agencias propias como JSON (para
-  respaldarlas o llevarlas a otro equipo) o bórralas.
+- **Plantilla Excel (recomendado):** un botón descarga un `.xlsx` con las
+  columnas correctas (`courier, courier_label, department, province,
+  district, zone, address, reference, lat, lng`), 2 filas de ejemplo y una
+  hoja de instrucciones con los couriers que ya existen. El admin la llena
+  y la vuelve a subir con el botón de al lado — cada fila se valida,
+  se le calculan las coordenadas si faltan, y se guarda en **Supabase**
+  (ver abajo), visible al instante para cualquier visitante del sitio.
+  Para una empresa nueva basta con inventar un `courier` (código corto,
+  ej. `rapidito`) y poner su nombre en `courier_label`: aparece solo,
+  automáticamente, como una opción más de "Retiro en agencia" en el
+  formulario — no hace falta editar `ShippingForm.jsx` ni `agencies.js`.
+- **Agregar una agencia suelta:** el mismo formulario de siempre, con un
+  selector de courier que incluye **"+ Nueva empresa…"** para crear una
+  al vuelo. Si Supabase está configurado, se guarda ahí (compartido); si
+  no, se guarda localmente como respaldo.
+- **Resumen por courier:** cuántas agencias hay oficiales (baked-in),
+  cuántas en Supabase (compartidas) y cuántas solo locales de cada una.
+- **Importador local** (`<details>` colapsable, respaldo sin conexión):
+  el mismo de antes — pegar texto en formato *Listado* / *CSV* / *JSON*,
+  o subir un archivo — pero guarda solo en `localStorage` de **ese
+  dispositivo**. Útil si todavía no configuraste Supabase, o para pruebas
+  rápidas. Exportar/Vaciar siguen disponibles ahí.
 
-> Las agencias propias se guardan en `localStorage` de **ese dispositivo**
-> (clave `anotate-custom-agencies`) y se combinan con el directorio oficial
-> en `getAgenciesForCourier()`. Al ser una app estática no hay backend
-> compartido: para que todos los dispositivos las vean, agrégalas al
-> archivo generado o intégralas por export/import. El directorio oficial
-> baked-in sí es global para todos los usuarios.
+### Base de datos compartida (Supabase)
+
+Por qué: sin esto, cualquier cosa que cargue el admin solo la ve **su
+propio navegador** (limitación de una app 100% estática, sin servidor
+propio). Con Supabase, el navegador de CADA visitante lee/escribe directo
+contra tu proyecto — se vuelve una base de datos real y compartida, sin
+que tengas que montar un backend.
+
+**1. Crea el proyecto y la tabla.** En [supabase.com](https://supabase.com)
+crea un proyecto gratis, abre **SQL Editor** y pega:
+
+```sql
+create table if not exists public.agencies (
+  id bigint generated always as identity primary key,
+  courier text not null,
+  courier_label text,
+  department text,
+  province text,
+  district text,
+  zone text,
+  address text not null,
+  reference text,
+  lat double precision,
+  lng double precision,
+  created_at timestamptz not null default now()
+);
+
+alter table public.agencies enable row level security;
+
+-- Cualquiera puede LEER (lo necesita el formulario, para todos los clientes).
+create policy "agencies_public_select" on public.agencies
+  for select using (true);
+
+-- Cualquiera puede ESCRIBIR (ver nota de seguridad más abajo).
+create policy "agencies_public_insert" on public.agencies
+  for insert with check (true);
+
+create policy "agencies_public_delete" on public.agencies
+  for delete using (true);
+```
+
+**2. Copia tus credenciales.** En **Settings → API** de ese proyecto,
+copia la **Project URL** y la **anon public key**.
+
+**3. Configúralas en Vercel** (Project Settings → Environment Variables):
+
+```
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu-anon-key
+```
+
+Vuelve a desplegar (`npx vercel --prod` o un nuevo push) para que queden
+horneadas en el bundle — a partir de ahí, TODOS los visitantes leen/escriben
+en la misma base. Para desarrollo local, copia `.env.example` a `.env` con
+esos mismos valores. También puedes pegarlos directamente en el panel de
+administrador (sección "Base de datos compartida") para probarlos sin
+redeploy — esa copia queda **solo en ese dispositivo**.
+
+> **Nota de seguridad, léela antes de usarlo en un negocio real de
+> volumen:** la "anon key" de Supabase está *pensada* para ser pública
+> (viaja en el bundle del navegador, como el resto del código) — la
+> protección real la da Row Level Security, no ocultar la clave. La
+> política de arriba (`with check (true)`) permite que **cualquiera** que
+> inspeccione el sitio pueda insertar filas directamente contra tu
+> Supabase, sin pasar por el panel de administrador — el mismo nivel de
+> "seguridad de cliente, no de servidor" que ya tiene el login de admin de
+> esta app (ver arriba). Es razonable para empezar; si más adelante quieres
+> cerrarlo de verdad, la vía correcta es activar **Supabase Auth** (un
+> usuario admin real) y cambiar las políticas de `insert`/`delete` a algo
+> como `using (auth.role() = 'authenticated')` en vez de `true` — dilo y se
+> integra.
+
+### Sobre la librería de Excel (`xlsx` / SheetJS)
+
+La lectura del `.xlsx` que sube el admin usa `xlsx` (SheetJS). La versión
+publicada en npm tiene 2 CVEs conocidos sin parche ahí (prototype
+pollution y ReDoS al leer un archivo malicioso) — ver
+[GHSA-4r6h-8v6p-xvw6](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6) y
+[GHSA-5pgg-2g8v-p4x9](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9).
+Mitigado por ahora con: (1) esta librería solo se carga tras el login de
+administrador, nunca para clientes del formulario (`import()` dinámico);
+(2) el archivo subido se limita a 5 MB antes de intentar leerlo; (3) el
+parseo va en `try/catch`. Para eliminar el riesgo del todo, SheetJS publica
+builds parchadas en su propio dominio (no en npm):
+
+```bash
+npm install https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+```
+
+(ese dominio estaba bloqueado en el sandbox donde se desarrolló esto, así
+que no se pudo instalar ni probar acá — debería funcionar normal en tu
+máquina o en el build de Vercel).
 
 Esto es una aproximación honesta, no una integración en vivo. Si más
 adelante consigues credenciales de Shalom Pro o de Olva, basta con

@@ -108,7 +108,7 @@ export default function SuccessScreen({ form, merchant }) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/10 pt-2.5">
             {form.courier && (
               <span className="flex items-center gap-1.5 text-[13.5px] font-semibold text-gray-200">
-                🚚 {COURIERS[form.courier]?.label ?? form.courier}
+                🚚 {COURIERS[form.courier]?.label ?? form.agency?.courierLabel ?? form.courier}
               </span>
             )}
             {form.shippingDate && (

@@ -1,22 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import AgencySearch from './AgencySearch'
 import { IconCalendar, IconChevronDown } from './icons'
-import { COURIERS } from '../data/agencies'
+import { getKnownCouriers } from '../data/agencies'
 import { DEPARTMENTS } from '../data/departments'
 import { PAYMENT_METHODS } from '../data/paymentMethods'
 import { generateAvailableDates } from '../utils/dates'
+import { extractCouriersFromRows, fetchAllSupabaseAgencies } from '../utils/supabaseAgencies'
 import { isNonEmpty, isValidDni, isValidPeruPhone } from '../utils/validation'
 
-const DELIVERY_OPTIONS = [
-  { value: 'store', label: 'Retiro en tienda' },
-  { value: 'home', label: 'Envío a domicilio' },
-  { value: 'agency:shalom', label: `Retiro en agencia ${COURIERS.shalom.label}` },
-  { value: 'agency:emtrafesa', label: `Retiro en agencia ${COURIERS.emtrafesa.label}` },
-  { value: 'agency:marvisur', label: `Retiro en agencia ${COURIERS.marvisur.label}` },
-  { value: 'agency:olva', label: `Retiro en agencia ${COURIERS.olva.label}` },
-  { value: 'agency:flores', label: `Retiro en agencia ${COURIERS.flores.label}` },
-  { value: 'agency:encomienda', label: 'Retiro en otra agencia / encomienda' },
-]
+// El listado de couriers no es fijo: además de los de fábrica (Shalom,
+// Emtrafesa, Marvisur, Olva, Flores), un administrador puede sumar
+// empresas nuevas desde el panel (Excel → Supabase, o el importador
+// local) SIN tocar código — por eso se arma en tiempo real más abajo.
+function buildDeliveryOptions(couriers) {
+  return [
+    { value: 'store', label: 'Retiro en tienda' },
+    { value: 'home', label: 'Envío a domicilio' },
+    ...couriers.map((c) => ({ value: `agency:${c.id}`, label: `Retiro en agencia ${c.label}` })),
+    { value: 'agency:encomienda', label: 'Retiro en otra agencia / encomienda' },
+  ]
+}
 
 function FieldLabel({ children, required }) {
   return (
@@ -126,12 +129,31 @@ export default function ShippingForm({ merchant, onSubmit }) {
   const [form, setForm] = useState(initialState)
   const [touched, setTouched] = useState({})
   const [attempted, setAttempted] = useState(false)
+  // Arranca con lo que ya se sabe sin red (de fábrica + local) y, apenas
+  // responde Supabase, se suman los couriers nuevos que solo viven ahí.
+  const [couriers, setCouriers] = useState(() => getKnownCouriers())
 
+  useEffect(() => {
+    let alive = true
+    fetchAllSupabaseAgencies().then((rows) => {
+      if (!alive) return
+      setCouriers((prev) => {
+        const knownIds = new Set(prev.map((c) => c.id))
+        const extra = extractCouriersFromRows(rows, knownIds)
+        return extra.length ? [...prev, ...extra] : prev
+      })
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const deliveryOptions = useMemo(() => buildDeliveryOptions(couriers), [couriers])
   const availableDates = useMemo(() => generateAvailableDates(merchant), [merchant])
 
   const isAgencyFlow = form.deliveryMethod.startsWith('agency:')
   const courierId = isAgencyFlow ? form.deliveryMethod.split(':')[1] : null
-  const isKnownCourier = ['shalom', 'emtrafesa', 'marvisur', 'olva', 'flores'].includes(courierId)
+  const isKnownCourier = courierId != null && couriers.some((c) => c.id === courierId)
   const isHome = form.deliveryMethod === 'home'
   const isStore = form.deliveryMethod === 'store'
 
@@ -237,7 +259,7 @@ export default function ShippingForm({ merchant, onSubmit }) {
         onChange={handleDeliveryMethodChange}
         onBlur={() => markTouched('deliveryMethod')}
         error={showError('deliveryMethod') ? errors.deliveryMethod : null}
-        options={DELIVERY_OPTIONS}
+        options={deliveryOptions}
       />
 
       {isAgencyFlow && (
