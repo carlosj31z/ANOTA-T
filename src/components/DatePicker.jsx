@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { IconCalendar, IconChevronLeft, IconChevronRight } from './icons'
+import { IconCalendar, IconChevronLeft, IconChevronRight, IconX } from './icons'
 
 const WEEKDAY_SHORT = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 const MONTH_NAMES = [
@@ -26,9 +26,6 @@ function monthKey(year, month) {
 
 export default function DatePicker({ value, onChange, options, placeholder, error, hint, required }) {
   const [open, setOpen] = useState(false)
-  const [rect, setRect] = useState(null)
-  const containerRef = useRef(null)
-  const popoverRef = useRef(null)
 
   const byValue = useMemo(() => new Map(options.map((o) => [o.value, o])), [options])
   const bounds = useMemo(() => {
@@ -58,28 +55,14 @@ export default function DatePicker({ value, onChange, options, placeholder, erro
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo reencuadrar cuando cambian los límites, no en cada render
   }, [bounds])
 
+  // Cerrar con Escape, como cualquier modal.
   useEffect(() => {
-    function handleClickOutside(e) {
-      const inContainer = containerRef.current && containerRef.current.contains(e.target)
-      const inPopover = popoverRef.current && popoverRef.current.contains(e.target)
-      if (!inContainer && !inPopover) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  useLayoutEffect(() => {
     if (!open) return
-    function updateRect() {
-      if (containerRef.current) setRect(containerRef.current.getBoundingClientRect())
+    function handleKey(e) {
+      if (e.key === 'Escape') setOpen(false)
     }
-    updateRect()
-    window.addEventListener('resize', updateRect)
-    window.addEventListener('scroll', updateRect, true)
-    return () => {
-      window.removeEventListener('resize', updateRect)
-      window.removeEventListener('scroll', updateRect, true)
-    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
   }, [open])
 
   function handleToggle() {
@@ -87,7 +70,7 @@ export default function DatePicker({ value, onChange, options, placeholder, erro
       const d = parseLocalDate(value.value)
       setView({ year: d.getFullYear(), month: d.getMonth() })
     }
-    setOpen((o) => !o)
+    setOpen(true)
   }
 
   function handlePick(dateValue) {
@@ -121,7 +104,7 @@ export default function DatePicker({ value, onChange, options, placeholder, erro
   }, [view, byValue])
 
   return (
-    <div ref={containerRef} className="relative">
+    <div className="relative">
       <label className="mb-1.5 block text-sm font-semibold text-gray-200">
         Fecha de Envío
         {required && <span className="text-red-400"> *</span>}
@@ -130,7 +113,7 @@ export default function DatePicker({ value, onChange, options, placeholder, erro
         type="button"
         onClick={handleToggle}
         className={`flex w-full items-center gap-2.5 rounded-xl border bg-white/5 px-3.5 py-3 text-left backdrop-blur-sm transition ${
-          open ? 'border-amber-400/70 ring-2 ring-amber-400/20' : error ? 'border-red-400/60' : 'border-white/10'
+          error ? 'border-red-400/60' : 'border-white/10 hover:border-white/20'
         }`}
       >
         <IconCalendar className="h-4.5 w-4.5 shrink-0 text-gray-500" />
@@ -141,65 +124,83 @@ export default function DatePicker({ value, onChange, options, placeholder, erro
       {hint && <p className="mt-1.5 text-xs text-gray-500">{hint}</p>}
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
 
+      {/* Modal emergente: no ocupa espacio en el formulario mientras está
+          cerrado, y al abrirse aparece por encima de todo con fondo oscuro
+          — nunca "quita visibilidad" del resto de la página. */}
       {open &&
-        rect &&
         createPortal(
           <div
-            ref={popoverRef}
-            style={{ position: 'fixed', top: rect.bottom + 6, left: rect.left, width: Math.max(rect.width, 280) }}
-            className="z-50 rounded-xl border border-white/10 bg-gray-900 p-3 shadow-2xl shadow-black/60"
+            className="animate-fade-in-up fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
           >
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => changeMonth(-1)}
-                disabled={atMin}
-                aria-label="Mes anterior"
-                className="rounded-lg p-1.5 text-gray-300 transition hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
-              >
-                <IconChevronLeft className="h-4 w-4" />
-              </button>
-              <p className="text-sm font-bold text-white">
-                {MONTH_NAMES[view.month]} {view.year}
-              </p>
-              <button
-                type="button"
-                onClick={() => changeMonth(1)}
-                disabled={atMax}
-                aria-label="Mes siguiente"
-                className="rounded-lg p-1.5 text-gray-300 transition hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
-              >
-                <IconChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl border border-white/10 bg-gray-900 p-4 shadow-2xl shadow-black/60"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-white">Elige una fecha</p>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Cerrar"
+                  className="rounded-lg p-1 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                >
+                  <IconX className="h-4 w-4" />
+                </button>
+              </div>
 
-            <div className="mt-2 grid grid-cols-7 gap-1 text-center">
-              {WEEKDAY_SHORT.map((w, i) => (
-                <span key={i} className="py-1 text-[11px] font-semibold text-gray-500">
-                  {w}
-                </span>
-              ))}
-              {cells.map((cell, i) =>
-                cell === null ? (
-                  <span key={`empty-${i}`} />
-                ) : (
-                  <button
-                    key={cell.dateValue}
-                    type="button"
-                    disabled={!cell.available}
-                    onClick={() => handlePick(cell.dateValue)}
-                    className={`aspect-square rounded-lg text-[13px] font-semibold transition ${
-                      value?.value === cell.dateValue
-                        ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-[0_0_12px_-2px_rgba(251,191,36,0.7)]'
-                        : cell.available
-                          ? 'text-white hover:bg-amber-400/15'
-                          : 'text-gray-700 cursor-not-allowed'
-                    }`}
-                  >
-                    {cell.day}
-                  </button>
-                ),
-              )}
+              <div className="mt-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => changeMonth(-1)}
+                  disabled={atMin}
+                  aria-label="Mes anterior"
+                  className="rounded-lg p-1.5 text-gray-300 transition hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <IconChevronLeft className="h-4 w-4" />
+                </button>
+                <p className="text-sm font-semibold text-gray-200">
+                  {MONTH_NAMES[view.month]} {view.year}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => changeMonth(1)}
+                  disabled={atMax}
+                  aria-label="Mes siguiente"
+                  className="rounded-lg p-1.5 text-gray-300 transition hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                  <IconChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-2 grid grid-cols-7 gap-1 text-center">
+                {WEEKDAY_SHORT.map((w, i) => (
+                  <span key={i} className="py-1 text-[11px] font-semibold text-gray-500">
+                    {w}
+                  </span>
+                ))}
+                {cells.map((cell, i) =>
+                  cell === null ? (
+                    <span key={`empty-${i}`} />
+                  ) : (
+                    <button
+                      key={cell.dateValue}
+                      type="button"
+                      disabled={!cell.available}
+                      onClick={() => handlePick(cell.dateValue)}
+                      className={`aspect-square rounded-lg text-[13px] font-semibold transition ${
+                        value?.value === cell.dateValue
+                          ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-[0_0_12px_-2px_rgba(251,191,36,0.7)]'
+                          : cell.available
+                            ? 'text-white hover:bg-amber-400/15'
+                            : 'text-gray-700 cursor-not-allowed'
+                      }`}
+                    >
+                      {cell.day}
+                    </button>
+                  ),
+                )}
+              </div>
             </div>
           </div>,
           document.body,
