@@ -1,6 +1,6 @@
 // Directorio de agencias de los couriers soportados.
 //
-// El dataset oficial (Shalom, Emtrafesa, Marvisur, Olva) vive en
+// El dataset oficial (Shalom, Emtrafesa, Marvisur, Olva, Flores) vive en
 // ./agenciesData.js — se genera desde los directorios oficiales y NO se
 // edita a mano. Aquí solo se le añade `id` + `label` y se combina con las
 // agencias que el administrador cargue desde la sección "Base de datos"
@@ -17,6 +17,7 @@ export const COURIERS = {
   emtrafesa: { id: 'emtrafesa', label: 'Emtrafesa' },
   marvisur: { id: 'marvisur', label: 'Marvisur' },
   olva: { id: 'olva', label: 'Olva Courier' },
+  flores: { id: 'flores', label: 'Transportes Flores' },
 }
 
 // Agencias "de fábrica" (directorio oficial baked-in), con id + label.

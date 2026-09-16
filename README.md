@@ -92,17 +92,18 @@ de cálculo**:
    - **Retiro en tienda** — solo nombre y fecha.
    - **Envío a domicilio** — dirección, departamento, provincia/distrito,
      referencia y método de pago (Yape/Plin, transferencia, contraentrega).
-   - **Retiro en agencia** (Shalom / Emtrafesa / Marvisur / Olva Courier) —
-     buscador de agencias con geolocalización (ver abajo) + DNI/CE.
+   - **Retiro en agencia** (Shalom / Emtrafesa / Marvisur / Olva Courier /
+     Transportes Flores) — buscador de agencias con geolocalización (ver
+     abajo) + DNI/CE.
    - **Otra agencia / encomienda** — nombre y dirección de recojo libres,
      para couriers fuera del catálogo.
 4. Al enviar, se valida todo en tiempo real y se muestra la pantalla de
    confirmación con un resumen y un botón para mandarlo por WhatsApp
    (`wa.me`) con emojis y negritas, al número configurado del merchant.
 
-## Sobre las "agencias cercanas" (Shalom, Marvisur, Olva Courier)
+## Sobre las "agencias cercanas" (Shalom, Emtrafesa, Marvisur, Olva, Flores)
 
-Antes de construir esto se investigó si estas 3 empresas peruanas ofrecen
+Antes de construir esto se investigó si estas empresas peruanas ofrecen
 una API pública para ubicar agencias por geolocalización. Resultado:
 
 - **Ninguna tiene una API pública y gratuita.**
@@ -111,7 +112,8 @@ una API pública para ubicar agencias por geolocalización. Resultado:
   cliente comercial.
 - **Olva Courier** solo ofrece integración por API mediante contacto
   comercial directo (proceso de 2-4 semanas), sin documentación pública.
-- **Marvisur** no tiene ninguna API documentada.
+- **Marvisur**, **Emtrafesa** y **Transportes Flores** no tienen ninguna
+  API documentada.
 - Además, `olvacourier.com`, `shalom.com.pe` y `expresomarvisur.com` no
   envían cabeceras CORS para consumo desde un dominio de terceros, así que
   aunque se consiguieran credenciales, no se podría llamar a esas APIs
@@ -119,19 +121,20 @@ una API pública para ubicar agencias por geolocalización. Resultado:
 
 **Solución implementada:** un directorio propio en
 `src/data/agenciesData.js` (archivo **generado**, no editar a mano) con
-**778 agencias reales**, expuesto a la app vía `src/data/agencies.js`:
+**más de 1200 agencias reales**, expuesto a la app vía `src/data/agencies.js`:
 
-- **Shalom (496 agencias): directorio oficial nacional completo.** Se
-  cargó del listado oficial de sucursales (documento Word) y se
-  geocodifica por distrito/departamento.
-- **Emtrafesa (45 agencias): directorio oficial completo.** Cargado del
-  documento oficial del courier (cobertura norte del país: La Libertad,
-  Lambayeque, Piura, Cajamarca, Áncash, Tumbes, Lima, etc.).
-- **Marvisur (~170 agencias): directorio oficial 2025 completo.** Se
-  extrajo del PDF oficial "Directorio Marvisur 2025".
-- **Olva (~67):** muestra amplia recopilada de las páginas de agencias y
-  directorios públicos, con fuerte cobertura de Lima por distrito y de
-  las principales ciudades.
+- **Shalom (496 agencias): directorio oficial nacional completo.** Del
+  listado oficial de sucursales (documento Word), geocodificado por
+  distrito/departamento.
+- **Olva Courier (468 agencias): directorio oficial completo.** Del
+  documento oficial del courier — cobertura de los 25 departamentos.
+- **Marvisur (179 agencias): directorio oficial completo**, con
+  dirección, referencia, email y teléfono de cada sucursal.
+- **Emtrafesa (45 agencias): directorio oficial completo** (cobertura
+  norte del país: La Libertad, Lambayeque, Piura, Cajamarca, Áncash,
+  Tumbes, Lima, etc.).
+- **Transportes Flores (26 agencias): directorio oficial completo**
+  (Arequipa, La Libertad, Lima, Piura, Puno, Tacna, Tumbes, etc.).
 
 Las coordenadas son aproximadas a nivel de distrito/ciudad
 (`src/data/peruGeo.js` geocodifica por distrito → provincia →
@@ -140,12 +143,12 @@ departamento). El formulario pide permiso de geolocalización al navegador
 (fórmula de Haversine, ver `src/utils/geo.js`), mostrando "~X km" junto
 a cada resultado.
 
-> Nota: Shalom, Emtrafesa y Marvisur están al 100% de sus directorios
-> oficiales. Solo Olva sigue siendo una muestra representativa: sus
-> sitios y los agregadores no exponen API pública ni permiten scraping
-> desde el navegador. Para completarlo basta con subir su directorio
-> oficial desde el panel de administrador (ver abajo), igual que se hizo
-> con los otros tres.
+> Nota: las 5 empresas están al 100% de sus directorios oficiales
+> (documentos Word/PDF proporcionados y procesados). Para sumar otro
+> courier o actualizar uno existente, basta con subir su directorio
+> oficial desde el panel de administrador (ver abajo) — o pedir que se
+> integre al dataset baked-in para que quede disponible para todos los
+> usuarios, como se hizo con estos cinco.
 
 ## Cargar/alimentar la base de datos (panel de administrador)
 
