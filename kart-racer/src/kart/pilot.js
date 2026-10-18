@@ -7,7 +7,7 @@
 // Coordenadas del piloto: origen en la base (asiento), +Z = adelante del kart.
 
 import * as THREE from 'three';
-import { xf, blob, cap, ball, tube, torus, mergeParts } from './geo.js';
+import { xf, blob, cap, ball, tube, torus, mergeParts, weld, sNoise } from './geo.js';
 
 export const ANCHORS = {
   head: { x: 0, y: 0.62, z: 0.0 },
@@ -16,11 +16,23 @@ export const ANCHORS = {
 
 const HEAD_R = 0.2;
 
+// Escala del piloto respecto al kart (tanda 4): estilo "cabezón".
+export const PILOT_SCALE = 1.3;
+// Escala extra de la cabeza sobre el cuerpo.
+export const HEAD_SCALE = 1.15;
+
 // ---------------------------------------------------------------------------
 // Utilidades de construcción
 // ---------------------------------------------------------------------------
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+// Cono suave soldado (pelo en punta, crestas...).
+function cone(r, h, seg = 8) {
+  const g = new THREE.ConeGeometry(r, h, seg);
+  g.translate(0, h / 2, 0);
+  return weld(g);
+}
 
 // Rota una parte alrededor de un punto base y un eje. Devuelve fn de morph delta.
 function bendMorph(base, axis, angle) {
@@ -98,9 +110,9 @@ function buildEye(face, e, irisColor) {
 }
 
 function buildBrow(face, side, e, colors) {
-  const len = e.r * 1.5;
+  const len = e.r * (e.browLen || 1.5);
   const anchor = V(e.x - side * e.r * 0.72, e.y + e.r * 0.86, e.z + e.r * 0.5);
-  let g = new THREE.CapsuleGeometry(0.011, len, 4, 8);
+  let g = new THREE.CapsuleGeometry(e.browR || 0.011, len, 4, 8);
   xf(g, { rz: Math.PI / 2, rx: 0.15 });
   xf(g, { x: anchor.x + side * len * 0.5, y: anchor.y + 0.02, z: anchor.z });
   const raise = (x, y, z) => [0, 0.03, 0];
@@ -165,11 +177,11 @@ function faceConfig(species, colors, head) {
         ...base,
         mouthColor: 0x123018,
         eyes: [
-          { x: hx - 0.115, y: hy + 0.2, z: hz + 0.06, r: 0.062, lidColor: colors.body },
-          { x: hx + 0.115, y: hy + 0.2, z: hz + 0.06, r: 0.062, lidColor: colors.body },
+          { x: hx - 0.125, y: hy + 0.075, z: hz + 0.11, r: 0.06, lidColor: colors.body },
+          { x: hx + 0.125, y: hy + 0.075, z: hz + 0.11, r: 0.06, lidColor: colors.body },
         ],
         iris: 0xc9a227,
-        mouth: { x: hx, y: hy - 0.075, z: hz + 0.14, R: 0.11, tube: 0.014 },
+        mouth: { x: hx, y: hy - 0.09, z: hz + 0.15, R: 0.12, tube: 0.016 },
       };
     case 'penguin':
       return {
@@ -221,6 +233,39 @@ function faceConfig(species, colors, head) {
         iris: 0xc4587a,
         mouth: { x: hx, y: hy - 0.07, z: hz + 0.2, R: 0.038, tube: 0.011 },
       };
+    case 'mechanic':
+      return {
+        ...base,
+        mouthColor: 0x5a2a20,
+        eyes: [
+          { x: hx - 0.092, y: hy + 0.03, z: hz + 0.15, r: 0.056, lidColor: (colors.look || {}).skinColor || 0xf1c39a, browColor: (colors.look || {}).mustacheColor || 0x6b3f1d, browR: 0.02, browLen: 1.4 },
+          { x: hx + 0.092, y: hy + 0.03, z: hz + 0.15, r: 0.056, lidColor: (colors.look || {}).skinColor || 0xf1c39a, browColor: (colors.look || {}).mustacheColor || 0x6b3f1d, browR: 0.02, browLen: 1.4 },
+        ],
+        iris: 0x4a2f14,
+        mouth: { x: hx, y: hy - 0.045, z: hz + 0.205, R: 0.052, tube: 0.013 },
+      };
+    case 'fighter':
+      return {
+        ...base,
+        mouthColor: 0x5a2430,
+        eyes: [
+          { x: hx - 0.088, y: hy + 0.045, z: hz + 0.158, r: 0.052, lidColor: (colors.look || {}).skinColor || 0xf1c9a0, browColor: (colors.look || {}).hairColor || 0xc9d3dd, browR: 0.014, browLen: 1.5 },
+          { x: hx + 0.088, y: hy + 0.045, z: hz + 0.158, r: 0.052, lidColor: (colors.look || {}).skinColor || 0xf1c9a0, browColor: (colors.look || {}).hairColor || 0xc9d3dd, browR: 0.014, browLen: 1.5 },
+        ],
+        iris: 0x1a8f86,
+        mouth: { x: hx, y: hy - 0.06, z: hz + 0.205, R: 0.04, tube: 0.012 },
+      };
+    case 'numbat':
+      return {
+        ...base,
+        mouthColor: 0x33201a,
+        eyes: [
+          { x: hx - 0.075, y: hy + 0.055, z: hz + 0.145, r: 0.05, lidColor: (colors.look || {}).furColor || 0xd5732f, browColor: 0x6b3a18 },
+          { x: hx + 0.075, y: hy + 0.055, z: hz + 0.145, r: 0.05, lidColor: (colors.look || {}).furColor || 0xd5732f, browColor: 0x6b3a18 },
+        ],
+        iris: 0x3a2414,
+        mouth: { x: hx, y: hy - 0.075, z: hz + 0.3, R: 0.03, tube: 0.01 },
+      };
     default:
       return {
         ...base,
@@ -248,7 +293,8 @@ function buildCommon() {
   const head = [];
   const face = [];
   const arms = [];
-  return { body, head, face, arms };
+  const glow = [];
+  return { body, head, face, arms, glow };
 }
 
 // Torso redondeado con caderas y cuello.
@@ -355,11 +401,17 @@ function buildRobot(colors, body, head, face, arms) {
   for (const side of [1, -1]) {
     head.push({ geo: xf(tube(0.03, 0.03, 0.06, 12), { x: ANCHORS.head.x + side * 0.19, y: ANCHORS.head.y, z: ANCHORS.head.z, rz: Math.PI / 2 }), color: 0x3a4450 });
   }
+  // Rejilla/reactor trasero emisivo (rasgo trasero identificable).
+  body.push({ geo: xf(blob(0.06, (v) => { v.x *= 1.7; v.y *= 0.95; v.z *= 0.3; }, 16, 12), { x: 0, y: 0.32, z: -0.17 }), color: a });
+  for (const side of [1, -1]) {
+    body.push({ geo: xf(tube(0.022, 0.022, 0.05, 8), { x: side * 0.1, y: 0.3, z: -0.2, rx: Math.PI / 2 }), color: 0x3a4450 });
+  }
   buildArmsCommon(colors, arms);
 }
 
 function buildFrog(colors, body, head, face, arms) {
   const b = colors.body;
+  const a = colors.accent;
   // Cuerpo bajo y ancho.
   body.push({ geo: xf(torsoParts(), { sy: 0.8, sx: 1.15, sz: 1.05 }), color: b });
   // Manchas.
@@ -370,17 +422,23 @@ function buildFrog(colors, body, head, face, arms) {
   ]) {
     body.push({ geo: xf(orb(mr, 12), { x: mx, y: my, z: mz, sz: 0.4 }), color: 0x2f8f38 });
   }
-  // Cabeza ancha y baja con boca enorme.
+  // Cresta dorsal (rasgo trasero identificable).
+  for (let i = 0; i < 3; i++) {
+    body.push({ geo: xf(blob(0.03, (v) => { v.y += 0.02; v.z *= 0.45; }, 12, 8), { x: 0, y: 0.34 - i * 0.02, z: -0.02 - i * 0.09 }), color: a });
+  }
+  // Cabeza ancha y achatada, con la cara (ojos saltones y boca ancha) bien
+  // visible de frente y desde la cámara lateral. Sin tallos.
   let shell = headShell((v) => {
-    v.x *= 1.18;
-    v.y *= 0.82;
-    v.z *= 1.05;
-    // párpados óseos sobre los ojos
+    v.x *= 1.32;
+    v.y *= 0.72;
+    v.z *= 1.04;
+    const cheek = Math.exp(-((Math.abs(v.x) - 0.12) ** 2 + (v.y + 0.02) ** 2) * 34);
+    v.x += Math.sign(v.x) * cheek * 0.022;
   });
-  head.push({ geo: xf(shell, { x: ANCHORS.head.x, y: ANCHORS.head.y - 0.02, z: ANCHORS.head.z }), color: b });
-  // Ojos saltones (cúpulas) — la esclerótica va en la cara; aquí los párpados.
+  head.push({ geo: xf(shell, { x: ANCHORS.head.x, y: ANCHORS.head.y - 0.05, z: ANCHORS.head.z + 0.01 }), color: b });
+  // Ojos saltones: cúpulas verdes que nacen directamente de la cabeza.
   for (const side of [1, -1]) {
-    head.push({ geo: xf(orb(0.072, 16), { x: ANCHORS.head.x + side * 0.115, y: ANCHORS.head.y + 0.19, z: ANCHORS.head.z + 0.05, sy: 0.85 }), color: b });
+    head.push({ geo: xf(orb(0.082, 16), { x: ANCHORS.head.x + side * 0.125, y: ANCHORS.head.y + 0.055, z: ANCHORS.head.z + 0.06, sy: 0.92 }), color: b });
   }
   buildArmsCommon(colors, arms);
 }
@@ -415,6 +473,14 @@ function buildPenguin(colors, body, head, face, arms) {
   head.push({ geo: hat, color: 0xd23b3b });
   head.push({ geo: xf(tube(0.15, 0.16, 0.05, 20), { x: 0, y: ANCHORS.head.y + 0.19, z: 0 }), color: 0xf0f0f0 });
   head.push({ geo: xf(orb(0.05, 14), { x: 0, y: ANCHORS.head.y + 0.27, z: 0 }), color: 0xf0f0f0 });
+  // Bufanda con puntas ondeando detrás (rasgo trasero identificable).
+  const scarfC = (colors.look || {}).scarfColor || 0xd23b3b;
+  body.push({ geo: xf(torus(0.15, 0.045, 8, 18), { x: 0, y: 0.44, z: 0, rx: Math.PI / 2 }), color: scarfC });
+  for (const side of [1, -1]) {
+    let flap = blob(0.05, (v) => { v.y *= 2.4; v.x *= 0.6; v.z *= 0.5; }, 14, 10);
+    xf(flap, { x: side * 0.06, y: 0.34, z: -0.16, rz: side * 0.12, rx: -0.3 });
+    body.push({ geo: flap, color: scarfC });
+  }
   buildArmsCommon(colors, arms);
 }
 
@@ -434,6 +500,8 @@ function buildBear(colors, body, head, face, arms) {
   // Hocico claro.
   head.push({ geo: xf(blob(0.09, (v) => { v.z *= 1.2; v.y *= 0.85; v.x *= 0.95; }, 26, 18), { x: ANCHORS.head.x, y: ANCHORS.head.y - 0.055, z: ANCHORS.head.z + 0.16 }), color: a });
   head.push({ geo: xf(orb(0.038, 12), { x: 0, y: ANCHORS.head.y - 0.03, z: ANCHORS.head.z + 0.235 }), color: 0x1b1418 });
+  // Colita redonda (rasgo trasero identificable).
+  body.push({ geo: xf(ball(0.05, 12), { x: 0, y: 0.2, z: -0.2 }), color: a });
   buildArmsCommon(colors, arms);
 }
 
@@ -500,22 +568,247 @@ function buildRabbit(colors, body, head, face, arms) {
   const b = colors.body;
   const a = colors.accent;
   body.push({ geo: torsoParts(), color: b });
-  body.push({ geo: xf(blob(0.06, null, 16, 12), { x: 0, y: 0.2, z: -0.16, sz: 1.4 }), color: 0xfdfdfd });
+  // Cola esponjosa blanca (rasgo trasero identificable).
+  const rTailBase = V(0, 0.22, -0.14);
+  let rTail = blob(0.085, (v) => { const n = sNoise(v.x * 26, v.y * 26, v.z * 26); v.multiplyScalar(1 + 0.16 * n); }, 18, 14);
+  const rTailM = { tailSwing: bendMorph(rTailBase, V(0, 1, 0), 0.3), tailUp: bendMorph(rTailBase, V(1, 0, 0), -0.4) };
+  body.push({ geo: xf(rTail, { x: rTailBase.x, y: rTailBase.y, z: rTailBase.z - 0.05, sz: 1.2 }), color: 0xfdfdfd, morphs: rTailM });
   // Cabeza.
   let shell = headShell((v) => { v.x *= 1.03; v.y *= 1.0; v.z *= 1.0; });
   head.push({ geo: xf(shell, ANCHORS.head), color: b });
-  // Orejas largas (morph para flamear).
+  // Orejas largas: nacen del cráneo (base hundida) y se alzan hacia arriba.
   for (const side of [1, -1]) {
-    const base = V(ANCHORS.head.x + side * 0.07, ANCHORS.head.y + 0.17, ANCHORS.head.z - 0.01);
-    let ear = blob(0.045, (v) => { v.y += 0.16; const t = (v.y - 0.16) / 0.045; v.x *= 1 - 0.3 * Math.max(0, t); v.z *= 1 - 0.25 * Math.max(0, t); v.y *= 1.05; v.y *= 1.6; }, 22, 18);
+    const base = V(ANCHORS.head.x + side * 0.07, ANCHORS.head.y + 0.09, ANCHORS.head.z - 0.01);
+    const earLen = 0.36;
+    let ear = blob(0.05, (v) => {
+      const t = (v.y + 0.05) / 0.1; // 0 en la base, 1 en la punta
+      const s = 1 - 0.42 * t;
+      v.x *= s;
+      v.z *= 0.68 * s;
+      v.y = t * earLen;
+    }, 22, 18);
     xf(ear, { x: base.x, y: base.y, z: base.z, rz: side * -0.12 });
     const morphs = { earBend: bendMorph(base, V(1, 0, 0), -0.95), earWag: bendMorph(base, V(0, 0, 1), side * 0.4) };
     head.push({ geo: ear, color: b, morphs });
-    head.push({ geo: xf(orb(0.024, 10), { x: base.x, y: base.y + 0.1, z: base.z + 0.03, sy: 2.0 }), color: a, morphs });
+    head.push({ geo: xf(orb(0.026, 10), { x: base.x, y: base.y + earLen * 0.5, z: base.z + 0.028, sy: earLen / 0.052 }), color: a, morphs });
   }
   // Naricita y dientes.
   head.push({ geo: xf(blob(0.055, (v) => { v.z *= 1.1; v.y *= 0.75; }, 20, 14), { x: 0, y: ANCHORS.head.y - 0.06, z: ANCHORS.head.z + 0.16 }), color: 0xfdfdfd });
   head.push({ geo: xf(orb(0.024, 10), { x: 0, y: ANCHORS.head.y - 0.04, z: ANCHORS.head.z + 0.205 }), color: 0xff9ab0 });
+  buildArmsCommon(colors, arms);
+}
+
+// ---------------------------------------------------------------------------
+// Tanda 4 — tres pilotos nuevos
+// ---------------------------------------------------------------------------
+
+// Max Tuerca — mecánico rechoncho, bigote rizado, gorra con tuerca, mono mostaza.
+function buildMechanic(colors, body, head, face, arms) {
+  const L = colors.look || {};
+  const skin = L.skinColor ?? 0xf1c39a;
+  const outfit = L.outfitColor ?? 0xd9a521;
+  const pocket = L.pocketColor ?? 0xb8821a;
+  const belt = L.beltColor ?? 0x4a3520;
+  const capC = L.capColor ?? 0x2f9e8f;
+  const emblem = L.capEmblemColor ?? 0xffd23f;
+  const mush = L.mustacheColor ?? 0x6b3f1d;
+  const glove = L.gloveColor ?? 0xffffff;
+  const wrench = L.wrenchColor ?? 0xc9d3dd;
+
+  // Torso rechoncho con mono de trabajo.
+  body.push({ geo: xf(torsoParts(), { sx: 1.2, sy: 1.0, sz: 1.14 }), color: outfit });
+  // Peto del mono.
+  body.push({ geo: xf(blob(0.12, (v) => { v.z *= 0.5; v.y *= 1.15; v.x *= 0.92; }, 24, 18), { x: 0, y: 0.29, z: 0.14 }), color: pocket });
+  // Costuras / tirantes.
+  for (const side of [1, -1]) {
+    body.push({ geo: xf(tube(0.012, 0.012, 0.34, 6), { x: side * 0.1, y: 0.33, z: 0.11, rx: 0.12, rz: side * 0.1 }), color: belt });
+  }
+  // Bolsillos.
+  for (const side of [1, -1]) {
+    body.push({ geo: xf(blob(0.045, (v) => { v.z *= 0.4; v.y *= 0.8; }, 14, 10), { x: side * 0.1, y: 0.2, z: 0.16 }), color: pocket });
+  }
+  // Cinturón con hebilla.
+  body.push({ geo: xf(torus(0.19, 0.028, 8, 22), { x: 0, y: 0.15, z: 0, rx: Math.PI / 2 }), color: belt });
+  body.push({ geo: xf(blob(0.035, (v) => { v.x *= 1.4; v.z *= 0.4; v.y *= 0.8; }, 12, 8), { x: 0, y: 0.15, z: 0.2 }), color: 0xd9d9de });
+  // Llave inglesa colgando del cinturón.
+  {
+    const wx = 0.2, wy = 0.05, wz = 0.02;
+    body.push({ geo: xf(tube(0.016, 0.016, 0.17, 8), { x: wx, y: wy - 0.04, z: wz, rx: 0.12 }), color: wrench });
+    body.push({ geo: xf(torus(0.03, 0.014, 8, 12, Math.PI * 1.25), { x: wx, y: wy - 0.13, z: wz + 0.01, rz: 0.5 }), color: wrench });
+  }
+  // Cabeza grande y redonda.
+  let shell = headShell((v) => { v.x *= 1.12; v.y *= 1.04; v.z *= 1.06; });
+  head.push({ geo: xf(shell, ANCHORS.head), color: skin });
+  // Orejas.
+  for (const side of [1, -1]) {
+    head.push({ geo: xf(orb(0.045, 12), { x: ANCHORS.head.x + side * 0.2, y: ANCHORS.head.y - 0.01, z: ANCHORS.head.z, sz: 0.6 }), color: skin });
+  }
+  // Nariz bulbosa.
+  head.push({ geo: xf(orb(0.062, 16), { x: 0, y: ANCHORS.head.y - 0.02, z: ANCHORS.head.z + 0.205, sy: 0.9 }), color: L.noseColor ?? 0xe08a6a });
+  // Gran bigote rizado castaño (esferas de tamaño decreciente).
+  const mustY = ANCHORS.head.y - 0.085;
+  const mustZ = ANCHORS.head.z + 0.19;
+  for (const side of [1, -1]) {
+    for (let i = 0; i < 3; i++) {
+      const rr = 0.038 - i * 0.005;
+      head.push({ geo: xf(orb(rr, 12), { x: side * (0.05 + i * 0.042), y: mustY - i * 0.004 + (i === 2 ? 0.018 : 0), z: mustZ - i * 0.022, sz: 0.85 }), color: mush });
+    }
+  }
+  // Gorra plana verde azulada con visera corta y tuerca dorada bordada.
+  {
+    let capDome = new THREE.SphereGeometry(HEAD_R * 1.04, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.52);
+    xf(capDome, { x: ANCHORS.head.x, y: ANCHORS.head.y + 0.04, z: ANCHORS.head.z, sz: 1.06 });
+    head.push({ geo: capDome, color: capC });
+    // Visera corta por encima de las cejas (no tapa los ojos) y bien visible.
+    head.push({ geo: xf(blob(0.1, (v) => { v.x *= 1.6; v.z *= 1.7; v.y *= 0.14; }, 18, 12), { x: 0, y: ANCHORS.head.y + 0.115, z: ANCHORS.head.z + 0.19, rx: 0.12 }), color: capC });
+    head.push({ geo: xf(torus(0.038, 0.014, 8, 6), { x: 0, y: ANCHORS.head.y + 0.17, z: ANCHORS.head.z + 0.15, rx: 1.0 }), color: emblem });
+    head.push({ geo: xf(ball(0.03, 6), { x: 0, y: ANCHORS.head.y + 0.165, z: ANCHORS.head.z + 0.148 }), color: emblem });
+  }
+  // Brazos con guantes blancos.
+  for (const side of [1, -1]) {
+    const shoulder = V(side * 0.2, 0.3, 0.02);
+    const hand = V(side * 0.15, 0.24, 0.5);
+    arms.push({ geo: limb(shoulder, hand, 0.058), color: outfit });
+    arms.push({ geo: xf(orb(0.075, 12), { x: hand.x, y: hand.y, z: hand.z }), color: glove });
+  }
+}
+
+// Kenzo Ráfaga — luchador, pelo en punta plata con mechas turquesa, kimono, aura.
+function buildFighter(colors, body, head, face, arms, glow) {
+  const L = colors.look || {};
+  const skin = L.skinColor ?? 0xf1c9a0;
+  const outfit = L.outfitColor ?? 0x8a3ffb;
+  const belt = L.beltColor ?? 0x1a1a1a;
+  const hairC = L.hairColor ?? 0xc9d3dd;
+  const streak = L.hairStreakColor ?? 0x28e0d0;
+  const band = L.bandColor ?? 0xff3b3b;
+  const emblem = L.emblemColor ?? 0x28e0d0;
+  const wrist = L.wristbandColor ?? 0xffffff;
+
+  // Torso atlético con kimono morado.
+  body.push({ geo: xf(torsoParts(), { sx: 1.06, sy: 1.05, sz: 1.02 }), color: outfit });
+  // Solapa en V.
+  for (const side of [1, -1]) {
+    body.push({ geo: xf(blob(0.075, (v) => { v.z *= 0.45; v.y *= 1.5; v.x *= 0.5; }, 18, 14), { x: side * 0.05, y: 0.3, z: 0.15, rz: side * 0.35 }), color: 0xf7f7ff });
+  }
+  // Cinturón negro ancho y nudo.
+  body.push({ geo: xf(torus(0.19, 0.03, 8, 22), { x: 0, y: 0.16, z: 0, rx: Math.PI / 2 }), color: belt });
+  body.push({ geo: xf(orb(0.04, 10), { x: 0, y: 0.16, z: 0.19, sz: 0.7 }), color: belt });
+  // Emblema rayo-espiral en el pecho.
+  body.push({ geo: xf(torus(0.055, 0.013, 6, 16, Math.PI * 1.7), { x: 0, y: 0.35, z: 0.185, rz: 0.5 }), color: emblem });
+  body.push({ geo: xf(blob(0.022, (v) => { v.y *= 2.4; v.x *= 0.35; }, 10, 8), { x: 0.012, y: 0.36, z: 0.19, rz: 0.6 }), color: emblem });
+  // Cabeza.
+  let shell = headShell((v) => { v.x *= 1.02; v.y *= 1.0; v.z *= 1.0; });
+  head.push({ geo: xf(shell, ANCHORS.head), color: skin });
+  for (const side of [1, -1]) {
+    head.push({ geo: xf(orb(0.042, 12), { x: ANCHORS.head.x + side * 0.195, y: ANCHORS.head.y - 0.005, z: ANCHORS.head.z, sz: 0.62 }), color: skin });
+  }
+  // Cinta roja en la frente.
+  head.push({ geo: xf(torus(0.208, 0.022, 8, 24), { x: 0, y: ANCHORS.head.y + 0.03, z: ANCHORS.head.z, rx: Math.PI / 2 }), color: band });
+  // Puntas de la cinta ondeando detrás (morphs de viento).
+  for (const side of [1, -1]) {
+    const bb = V(0.02 * side, ANCHORS.head.y + 0.02, ANCHORS.head.z - 0.19);
+    let ribbon = blob(0.035, (v) => { v.z *= 2.6; v.y *= 0.5; v.x *= 0.5; }, 14, 10);
+    xf(ribbon, { x: bb.x, y: bb.y, z: bb.z - 0.08, rx: -0.2, rz: side * 0.25 });
+    const m = { earBend: bendMorph(bb, V(1, 0, 0), -0.8), earWag: bendMorph(bb, V(0, 0, 1), side * 0.9) };
+    head.push({ geo: ribbon, color: band, morphs: m });
+  }
+  // Base de pelo (casquete plateado) para que no se vea la calva.
+  head.push({ geo: xf(new THREE.SphereGeometry(HEAD_R * 1.03, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.58), { x: ANCHORS.head.x, y: ANCHORS.head.y, z: ANCHORS.head.z, sz: 1.02 }), color: hairC });
+  // Pelo en punta exagerado PLATA: abanico de conos que nacen del cráneo y
+  // se abren hacia fuera (algunos al mesh brillante, mechas turquesa).
+  // [dirX, dirZ, alto, radio, esMecha]
+  const spots = [
+    [0.0, -1.0, 0.17, 0.05, false],
+    [0.62, -0.82, 0.16, 0.045, true],
+    [-0.62, -0.82, 0.16, 0.045, false],
+    [0.9, -0.35, 0.14, 0.042, false],
+    [-0.9, -0.35, 0.14, 0.042, true],
+    [0.55, -0.05, 0.19, 0.048, false],
+    [-0.55, -0.05, 0.19, 0.048, false],
+    [0.18, 0.4, 0.2, 0.05, true],
+    [-0.18, 0.4, 0.2, 0.05, false],
+    [0.0, -0.45, 0.23, 0.052, true],
+  ];
+  for (const [dx, dz, h, r, st] of spots) {
+    const lean = 0.72;
+    const g = xf(cone(r, h, 8), {
+      x: dx * 0.12,
+      y: ANCHORS.head.y + 0.09,
+      z: ANCHORS.head.z + dz * 0.12,
+      rx: dz * lean,
+      rz: -dx * lean,
+    });
+    (st ? glow : head).push({ geo: g, color: st ? streak : hairC });
+  }
+  // Brazos con muñequeras.
+  for (const side of [1, -1]) {
+    const shoulder = V(side * 0.19, 0.3, 0.02);
+    const hand = V(side * 0.15, 0.24, 0.5);
+    arms.push({ geo: limb(shoulder, hand, 0.052), color: outfit });
+    arms.push({ geo: xf(tube(0.056, 0.056, 0.06, 12), { x: side * 0.17, y: 0.275, z: 0.3, rx: 1.35, rz: side * 0.1 }), color: wrist });
+    arms.push({ geo: xf(orb(0.066, 12), { x: hand.x, y: hand.y, z: hand.z }), color: skin });
+  }
+}
+
+// Zuri — numbat rojizo rayado, hocico largo, gafas de aviador, cola esponjosa.
+function buildNumbat(colors, body, head, face, arms) {
+  const L = colors.look || {};
+  const fur = L.furColor ?? 0xd5732f;
+  const stripe = L.stripeColor ?? 0xffffff;
+  const snout = L.snoutColor ?? 0xf3d8b8;
+  const vest = L.vestColor ?? 0xa8e020;
+  const shoe = L.shoeColor ?? 0xff3b3b;
+  const gog = L.gogglesColor ?? 0x6b4a1f;
+  const lens = L.gogglesLensColor ?? 0x3ab0ff;
+
+  // Cuerpo compacto.
+  body.push({ geo: xf(torsoParts(), { sx: 0.98, sy: 0.98, sz: 1.02 }), color: fur });
+  // Rayas blancas transversales en el lomo y ancas.
+  for (let i = 0; i < 5; i++) {
+    const z = 0.05 - i * 0.06;
+    const y = 0.34 - i * 0.012;
+    body.push({ geo: xf(blob(0.045, (v) => { v.x *= 2.6; v.z *= 0.28; v.y *= 0.45; }, 14, 10), { x: 0, y, z }), color: stripe });
+  }
+  // Chaleco verde lima.
+  body.push({ geo: xf(blob(0.15, (v) => { v.z *= 0.55; v.y *= 1.3; v.x *= 0.98; }, 26, 20), { x: 0, y: 0.28, z: 0.11 }), color: vest });
+  body.push({ geo: xf(blob(0.14, (v) => { v.z *= 0.5; v.y *= 1.22; v.x *= 0.95; }, 24, 18), { x: 0, y: 0.29, z: -0.1 }), color: vest });
+  // Cola larga y esponjosa (pelo erizado) que ondea.
+  const tailBase = V(0, 0.18, -0.15);
+  let tail = blob(0.1, (v) => {
+    v.y *= 0.5;
+    v.z *= 2.6;
+    const n = sNoise(v.x * 24, v.y * 24, v.z * 24);
+    const k = 1 + 0.18 * n;
+    v.x *= k;
+    v.y *= k;
+  }, 26, 20);
+  xf(tail, { x: tailBase.x, y: tailBase.y + 0.02, z: tailBase.z - 0.24, rx: 0.3 });
+  const tailM = { tailSwing: bendMorph(tailBase, V(0, 1, 0), 0.45), tailUp: bendMorph(tailBase, V(1, 0, 0), -0.5) };
+  body.push({ geo: tail, color: fur, morphs: tailM });
+  body.push({ geo: xf(orb(0.06, 14), { x: tailBase.x, y: tailBase.y + 0.06, z: tailBase.z - 0.62, sy: 1.2 }), color: 0xf7e3c8, morphs: tailM });
+  // Zapatillas.
+  for (const side of [1, -1]) {
+    body.push({ geo: xf(blob(0.06, (v) => { v.z *= 1.5; v.y *= 0.6; }, 14, 10), { x: side * 0.12, y: 0.07, z: 0.06 }), color: shoe });
+  }
+  // Cabeza con hocico largo y fino.
+  let shell = headShell((v) => { v.x *= 1.04; v.y *= 1.0; v.z *= 1.0; });
+  head.push({ geo: xf(shell, ANCHORS.head), color: fur });
+  head.push({ geo: xf(blob(0.07, (v) => { v.z *= 2.4; v.y *= 0.62; v.x *= 0.62; }, 26, 18), { x: 0, y: ANCHORS.head.y - 0.03, z: ANCHORS.head.z + 0.19 }), color: snout });
+  head.push({ geo: xf(orb(0.03, 12), { x: 0, y: ANCHORS.head.y - 0.03, z: ANCHORS.head.z + 0.35, sz: 0.9 }), color: 0x14100e });
+  // Orejas pequeñas redondeadas (nacen del cráneo).
+  for (const side of [1, -1]) {
+    const eBase = V(ANCHORS.head.x + side * 0.13, ANCHORS.head.y + 0.1, ANCHORS.head.z - 0.02);
+    const m = { earBend: bendMorph(eBase, V(1, 0, 0), -0.7), earWag: bendMorph(eBase, V(0, 0, 1), side * 0.5) };
+    head.push({ geo: xf(orb(0.055, 14), { x: eBase.x, y: eBase.y, z: eBase.z, sz: 0.55 }), color: fur, morphs: m });
+    head.push({ geo: xf(orb(0.03, 10), { x: eBase.x, y: eBase.y, z: eBase.z + 0.03, sz: 0.5 }), color: 0xffd9b0, morphs: m });
+  }
+  // Gafas de aviador sobre la frente (cristales con reflejo).
+  for (const side of [1, -1]) {
+    head.push({ geo: xf(torus(0.05, 0.014, 8, 16), { x: side * 0.085, y: ANCHORS.head.y + 0.12, z: ANCHORS.head.z + 0.12, rx: 0.5, rz: side * 0.15 }), color: gog });
+    head.push({ geo: xf(orb(0.045, 14), { x: side * 0.085, y: ANCHORS.head.y + 0.12, z: ANCHORS.head.z + 0.13, sz: 0.25 }), color: lens });
+  }
+  head.push({ geo: xf(torus(0.2, 0.012, 6, 20), { x: 0, y: ANCHORS.head.y + 0.12, z: ANCHORS.head.z - 0.02, rx: Math.PI / 2 * 0.92 }), color: gog });
   buildArmsCommon(colors, arms);
 }
 
@@ -694,31 +987,40 @@ export function buildPilot(character) {
 
   switch (species) {
     case 'fox':
-      buildFox(colors, g.body, g.head, g.face, g.arms);
+      buildFox(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'robot':
-      buildRobot(colors, g.body, g.head, g.face, g.arms);
+      buildRobot(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'frog':
-      buildFrog(colors, g.body, g.head, g.face, g.arms);
+      buildFrog(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'penguin':
-      buildPenguin(colors, g.body, g.head, g.face, g.arms);
+      buildPenguin(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'bear':
-      buildBear(colors, g.body, g.head, g.face, g.arms);
+      buildBear(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'cat':
-      buildCat(colors, g.body, g.head, g.face, g.arms);
+      buildCat(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'dino':
-      buildDino(colors, g.body, g.head, g.face, g.arms);
+      buildDino(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     case 'rabbit':
-      buildRabbit(colors, g.body, g.head, g.face, g.arms);
+      buildRabbit(colors, g.body, g.head, g.face, g.arms, g.glow);
+      break;
+    case 'mechanic':
+      buildMechanic(colors, g.body, g.head, g.face, g.arms, g.glow);
+      break;
+    case 'fighter':
+      buildFighter(colors, g.body, g.head, g.face, g.arms, g.glow);
+      break;
+    case 'numbat':
+      buildNumbat(colors, g.body, g.head, g.face, g.arms, g.glow);
       break;
     default:
-      buildFox(colors, g.body, g.head, g.face, g.arms);
+      buildFox(colors, g.body, g.head, g.face, g.arms, g.glow);
   }
 
   // Cara geométrica (excepto el robot, que dibuja sus ojos en pantalla).
@@ -736,12 +1038,15 @@ export function buildPilot(character) {
   const headGeo = mergeParts(g.head);
   const armsGeo = mergeParts(g.arms);
   const faceGeo = g.face.length ? mergeParts(g.face) : null;
+  const glowGeo = g.glow.length ? mergeParts(g.glow) : null;
 
   return {
     bodyGeo,
     headGeo,
     armsGeo,
     faceGeo,
+    glowGeo,
+    glow: !!glowGeo,
     screen,
     anchors: ANCHORS,
     headR: HEAD_R,

@@ -12,7 +12,12 @@ import {
   GRAVITY,
 } from '../shared/constants.js';
 import { getKartModel } from './model.js';
-import { getPilotMaterial, getFaceMaterial } from './materials.js';
+import {
+  getPilotMaterial,
+  getFaceMaterial,
+  getPilotGlowMaterial,
+} from './materials.js';
+import { PILOT_SCALE, HEAD_SCALE } from './pilot.js';
 
 // --- Constantes de jugabilidad ---
 const SPIN_TIME = 1.2; // duración del giro por golpe
@@ -45,6 +50,15 @@ const EXPRESSIONS = {
 };
 const EXPR_KEYS = ['smile', 'big', 'o', 'frown', 'grit', 'browAngry', 'browRaise', 'squint', 'headShake'];
 
+// --- Ventajas por personaje (contrato §10.2) ---
+// El evento 'kart:perk' es nuevo de la tanda 4; no está en EVENTS (shared).
+const PERK_EVENT = 'kart:perk';
+const PERK_DRIFT_CHARGE = 1.25; // astucia: carga de derrape ×1.25
+const PERK_SPIN_FACTOR = 0.6; // blindaje: spin ×0.6
+const PERK_RAMP_IMPULSE = 1.3; // salto_rana: impulso de rampa ×1.3
+const PERK_ITEM_BOOST = 1.35; // rugido: boost de objeto ×1.35
+const PERK_AURA_BOOST = 1.5; // aura: mini-turbo nivel 3 ×1.5
+
 const _fwd = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _probe = new THREE.Vector3();
@@ -67,6 +81,7 @@ const WHEELS = [
 
 const NECK_Y = 0.44;
 const NECK_Z = -0.02;
+const PILOT_BASE_Y = 0.46;
 
 function clamp(v, a, b) {
   return v < a ? a : v > b ? b : v;
@@ -138,11 +153,15 @@ export function createKart(scene, character, opts = {}) {
   steeringPivot.add(steering);
   tilt.add(steeringPivot);
 
-  // --- Piloto ---
+  // --- Piloto (tanda 4: escala "cabezón") ---
   const anchors = model.pilot.anchors;
   const pilot = new THREE.Group();
-  pilot.position.set(0, 0.5, -0.18);
+  pilot.position.set(0, PILOT_BASE_Y, -0.17);
+  pilot.scale.setScalar(PILOT_SCALE);
   tilt.add(pilot);
+
+  const glowMat = getPilotGlowMaterial(character);
+  const hyper = character.species === 'numbat';
 
   const bodyMesh = new THREE.Mesh(model.pilot.bodyGeo, pilotMat);
   bodyMesh.castShadow = true;
@@ -159,29 +178,42 @@ export function createKart(scene, character, opts = {}) {
   armsGroup.add(armsMesh);
   pilot.userData.armsGroup = armsGroup;
 
+  // La cabeza se agranda ×HEAD_SCALE sobre el cuerpo, anclada en el cuello
+  // (posición = -escala * pivote) para que el pivote de rotación no se mueva.
+  const HS = HEAD_SCALE;
   const headGroup = new THREE.Group();
   headGroup.position.set(0, NECK_Y, NECK_Z);
   pilot.add(headGroup);
 
   const headMesh = new THREE.Mesh(model.pilot.headGeo, pilotMat);
   headMesh.castShadow = true;
-  headMesh.position.set(0, -NECK_Y, -NECK_Z);
+  headMesh.scale.setScalar(HS);
+  headMesh.position.set(0, -HS * NECK_Y, -HS * NECK_Z);
   headGroup.add(headMesh);
 
   let faceMesh = null;
+  let glowMesh = null;
   let screenMesh = null;
   let screen = null;
   if (model.pilot.faceGeo) {
     faceMesh = new THREE.Mesh(model.pilot.faceGeo, faceMat);
-    faceMesh.position.set(0, -NECK_Y, -NECK_Z);
+    faceMesh.scale.setScalar(HS);
+    faceMesh.position.set(0, -HS * NECK_Y, -HS * NECK_Z);
     headGroup.add(faceMesh);
+  }
+  if (model.pilot.glowGeo) {
+    glowMesh = new THREE.Mesh(model.pilot.glowGeo, glowMat);
+    glowMesh.castShadow = true;
+    glowMesh.scale.setScalar(HS);
+    glowMesh.position.set(0, -HS * NECK_Y, -HS * NECK_Z);
+    headGroup.add(glowMesh);
   }
   if (model.pilot.screen) {
     screen = model.pilot.screen;
     const geo = new THREE.PlaneGeometry(0.25, 0.23);
     const mat = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false });
     screenMesh = new THREE.Mesh(geo, mat);
-    screenMesh.position.set(0, anchors.head.y + 0.02 - NECK_Y, 0.2 - NECK_Z);
+    screenMesh.position.set(0, HS * (anchors.head.y + 0.02 - NECK_Y), HS * (0.2 - NECK_Z));
     headGroup.add(screenMesh);
   }
 
@@ -215,7 +247,21 @@ export function createKart(scene, character, opts = {}) {
     spinTime: 0,
     shieldTime: 0,
     surface: 'road',
+    aura: false, // kenzo: turbo de mini-nivel 3 activo (lo dibuja fx)
   };
+
+  const perkId = character.perk ? character.perk.id : null;
+  const perkAstucia = perkId === 'astucia';
+  const perkBlindaje = perkId === 'blindaje';
+  const perkSalto = perkId === 'salto_rana';
+  const perkPatinador = perkId === 'patinador';
+  const perkSieteVidas = perkId === 'siete_vidas';
+  const perkRugido = perkId === 'rugido';
+  const perkAura = perkId === 'aura';
+  // patinador: la penalización offroad a la mitad.
+  const offroadFactor = perkPatinador
+    ? 1 - (1 - OFFROAD_SPEED_FACTOR) / 2
+    : OFFROAD_SPEED_FACTOR;
 
   const controls = { throttle: 0, brake: 0, steer: 0, drift: false, useItem: false };
 
@@ -256,6 +302,15 @@ export function createKart(scene, character, opts = {}) {
   const tailSpring = { pos: 0, vel: 0 };
   const earSpring = { pos: 0, vel: 0 };
 
+  // Tanda 4: mirada lateral/atrás, aura de Kenzo, vidas de Mishi, rampa de Pipa.
+  let headYaw = 0;
+  let lookBackTimer = 0;
+  let lookBackSign = 1;
+  let auraTime = 0;
+  let glowPulse = 0;
+  let rampLaunch = false;
+  let livesArmed = perkSieteVidas;
+
   // Expresiones
   let expression = 'neutral';
   const cur = {};
@@ -291,26 +346,48 @@ export function createKart(scene, character, opts = {}) {
     state.driftLevel = 0;
     driftCharge = 0;
     emit(EVENTS.DRIFT_END, { kart, level });
-    if (giveBoost && level >= 1) applyBoost(DRIFT_BOOST[level], 1, 'drift');
+    if (giveBoost && level >= 1) {
+      let dur = DRIFT_BOOST[level];
+      if (level === 3 && perkAura) {
+        dur *= PERK_AURA_BOOST;
+        auraTime = Math.max(auraTime, dur);
+        state.aura = true;
+        emit(PERK_EVENT, { kart, perkId });
+      }
+      applyBoost(dur, 1, 'drift');
+    }
   }
 
   function applyBoost(duration, strength = 1, source = 'item') {
-    state.boostTime = Math.max(state.boostTime, duration);
+    let d = duration;
+    if (source === 'item' && perkRugido) d *= PERK_ITEM_BOOST; // rugido
+    state.boostTime = Math.max(state.boostTime, d);
     boostStrength = clamp(strength, 0, 2);
     emit(EVENTS.BOOST, { kart, source });
   }
 
   function hit(by = 'hit') {
     if (state.shieldTime > 0) return;
+    // siete_vidas: ignora el primer golpe de cada vuelta (se rearma con LAP).
+    if (perkSieteVidas && livesArmed) {
+      livesArmed = false;
+      bumpImpulse(0.4);
+      setExpression('contento', 1.4);
+      emit(PERK_EVENT, { kart, perkId });
+      return;
+    }
     endDrift(false);
     state.boostTime = 0;
-    state.spinTime = SPIN_TIME;
+    auraTime = 0;
+    state.aura = false;
+    state.spinTime = SPIN_TIME * (perkBlindaje ? PERK_SPIN_FACTOR : 1);
     spinAngle = 0;
     const w = character.stats.weight;
     speed *= clamp(0.55 - w * 0.05, 0.25, 0.55);
     lat *= 0.3;
     surpriseTimer = 0.45;
     angryTimer = 1.5;
+    lookBackTimer = Math.max(lookBackTimer, 1.1); // mira atrás por quién le golpeó
     emit(EVENTS.HIT, { kart, by });
   }
 
@@ -362,6 +439,14 @@ export function createKart(scene, character, opts = {}) {
     surpriseTimer = 0;
     angryTimer = 0;
     euphoriaTimer = 0;
+    state.aura = false;
+    auraTime = 0;
+    lookBackTimer = 0;
+    headYaw = 0;
+    glowPulse = 0;
+    rampLaunch = false;
+    livesArmed = perkSieteVidas;
+    pilot.position.y = PILOT_BASE_Y;
     object3d.rotation.y = h;
     tilt.rotation.set(0, 0, 0);
     tilt.position.y = 0;
@@ -540,7 +625,12 @@ export function createKart(scene, character, opts = {}) {
     if (spinning) dizzy += dt * 11;
     else dizzy += (0 - dizzy) * (1 - Math.exp(-6 * dt));
     const shake = cur.headShake * Math.sin(animTime * 12) * 0.28;
-    headGroup.rotation.y = dizzy + shake;
+    // Tanda 4: mira hacia dentro de la curva y atrás un instante tras un golpe,
+    // para que se vea la cara a menudo desde la cámara de persecución.
+    const turnLook = clamp(steerVis * 0.5 + (state.drifting ? state.driftDir * 0.5 : 0), -1.1, 1.1);
+    const back = lookBackTimer > 0 ? lookBackSign * 1.25 : 0;
+    headYaw += (turnLook + back - headYaw) * (1 - Math.exp(-7 * dt));
+    headGroup.rotation.y = dizzy + shake + headYaw;
 
     // Brazos: al volante; giran con la dirección y suben al celebrar.
     const armLift = celebrating ? -2.3 : cur.big > 0.5 ? -0.5 : 0;
@@ -550,6 +640,11 @@ export function createKart(scene, character, opts = {}) {
     // Respiración leve del torso.
     const breath = 1 + Math.sin(animTime * 2.6) * 0.015 + speedNorm * 0.01;
     bodyMesh.scale.set(1, breath, 1);
+
+    // Zuri (numbat): hiperactivo, rebota en el asiento.
+    if (hyper) {
+      pilot.position.y = PILOT_BASE_Y + Math.abs(Math.sin(animTime * 7.5)) * (0.018 + speedNorm * 0.03);
+    }
 
     // Orejas / cola con física de muelle → morphs.
     updateSpring(earSpring, -rollVis * 16 + bumpPos * 26 - speedNorm * 12, dt, 40, 8);
@@ -569,6 +664,13 @@ export function createKart(scene, character, opts = {}) {
       mats.paint.emissiveIntensity = 0.5;
     } else if (mats.paint.emissiveIntensity !== 0) {
       mats.paint.emissiveIntensity = 0;
+    }
+
+    // Kenzo: el pelo (mechas) brilla turquesa con el turbo.
+    if (glowMesh) {
+      const target = state.boostTime > 0 ? 0.9 + 0.45 * Math.sin(animTime * 20) : 0;
+      glowPulse += (target - glowPulse) * (1 - Math.exp(-9 * dt));
+      glowMat.emissiveIntensity = glowPulse;
     }
 
     // Sombra de contacto: se queda en el suelo y se difumina al saltar.
@@ -595,6 +697,11 @@ export function createKart(scene, character, opts = {}) {
     // --- temporizadores ---
     if (state.boostTime > 0) state.boostTime = Math.max(0, state.boostTime - dt);
     if (state.shieldTime > 0) state.shieldTime = Math.max(0, state.shieldTime - dt);
+    if (auraTime > 0) {
+      auraTime = Math.max(0, auraTime - dt);
+      if (auraTime === 0) state.aura = false;
+    }
+    if (lookBackTimer > 0) lookBackTimer = Math.max(0, lookBackTimer - dt);
     if (wallCooldown > 0) wallCooldown -= dt;
     if (padCooldown > 0) padCooldown -= dt;
     if (rampCooldown > 0) rampCooldown -= dt;
@@ -644,7 +751,7 @@ export function createKart(scene, character, opts = {}) {
     // --- velocidad máxima efectiva según superficie y turbo ---
     let effMax = maxSpeed;
     if (state.boostTime > 0) effMax *= 1 + (BOOST_MAX_FACTOR - 1) * boostStrength;
-    else if (proj.surface === 'offroad') effMax *= OFFROAD_SPEED_FACTOR;
+    else if (proj.surface === 'offroad') effMax *= offroadFactor;
     else if (proj.surface === 'wall') effMax *= 0.55;
 
     // --- motor / freno / marcha atrás ---
@@ -692,7 +799,7 @@ export function createKart(scene, character, opts = {}) {
     // --- derrape: carga de nivel y fin ---
     if (state.drifting) {
       const inward = steerIn * state.driftDir > 0 ? Math.abs(steerIn) : 0;
-      driftCharge += dt * (1 + inward * 0.7);
+      driftCharge += dt * (1 + inward * 0.7) * (perkAstucia ? PERK_DRIFT_CHARGE : 1);
       let lvl = 0;
       if (driftCharge >= DRIFT_LEVEL_TIME[2]) lvl = 3;
       else if (driftCharge >= DRIFT_LEVEL_TIME[1]) lvl = 2;
@@ -768,6 +875,12 @@ export function createKart(scene, character, opts = {}) {
         rampCooldown = 0.6;
         bumpImpulse(0.8);
         emit(EVENTS.LAND, { kart });
+        // salto_rana: turbo de 0.5 s al aterrizar tras una rampa.
+        if (rampLaunch && perkSalto) {
+          applyBoost(0.5, 1, 'pad');
+          emit(PERK_EVENT, { kart, perkId });
+        }
+        rampLaunch = false;
       }
     } else {
       position.y = proj.groundY;
@@ -778,7 +891,8 @@ export function createKart(scene, character, opts = {}) {
         typeof track.isOnRamp === 'function' &&
         track.isOnRamp(position)
       ) {
-        vy = RAMP_IMPULSE;
+        vy = RAMP_IMPULSE * (perkSalto ? PERK_RAMP_IMPULSE : 1);
+        rampLaunch = true;
         state.airborne = true;
         rampCooldown = 0.6;
         emit(EVENTS.JUMP, { kart });
@@ -841,6 +955,18 @@ export function createKart(scene, character, opts = {}) {
     celebrate,
     setExpression,
   };
+
+  if (events) {
+    // siete_vidas: se rearma al empezar cada vuelta del kart.
+    events.on(EVENTS.LAP, (p) => {
+      if (p && p.kart === kart && perkSieteVidas) livesArmed = true;
+    });
+    // Mira atrás cuando alguien le embiste por detrás.
+    events.on(EVENTS.BUMP, (p) => {
+      if (!p) return;
+      if (p.a === kart || p.b === kart) lookBackTimer = Math.max(lookBackTimer, 0.9);
+    });
+  }
 
   setTransform(position, 0);
   updateWheels(0);

@@ -47,7 +47,7 @@ async function main() {
   process.on('exit', cleanup);
 
   let browser = null;
-  const report = { gallery: false, expressions: false, errors: [], stats: null };
+  const report = { gallery: false, expressions: false, new3: false, errors: [], stats: null };
 
   try {
     const up = await waitForServer(BASE);
@@ -75,15 +75,16 @@ async function main() {
 
     report.stats = await page.evaluate(() => window.__gallery.triangles());
 
-    // ---- Foto 1: galería (2 filas de 4, de frente) ----
+    // ---- Foto 1: galería de los 11 en 3 filas ----
     await page.evaluate(() => {
       const g = window.__gallery;
       g.layoutGallery();
       g.settle(60);
-      g.setCamera([0, 3.1, 11.2], [0, 0.75, -0.3], 42);
+      g.setCamera([0, 5.4, 17.5], [0, 0.8, -0.5], 40);
       g.render();
     });
     await page.waitForTimeout(700);
+    await page.screenshot({ path: path.join(ROOT, 'shots', 'kart-gallery-11.png') });
     await page.screenshot({ path: path.join(ROOT, 'shots', 'kart-gallery.png') });
     report.gallery = true;
 
@@ -99,16 +100,34 @@ async function main() {
         'contento',
         'neutral',
         'eufórico',
+        'contento',
+        'determinado',
+        'sorprendido',
       ];
       g.layoutGallery();
       for (let i = 0; i < g.karts.length; i++) g.karts[i].setExpression(exprs[i], 9999);
       g.settle(70);
-      g.setCamera([0, 1.75, 6.4], [0, 0.95, 0.2], 34);
+      g.setCamera([0, 2.4, 9.6], [0, 1.0, -0.8], 36);
       g.render();
     });
     await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(ROOT, 'shots', 'kart-expressions.png') });
     report.expressions = true;
+
+    // ---- Foto 3: primer plano de los 3 nuevos, cada uno con una expresión ----
+    await page.evaluate(() => {
+      const g = window.__gallery;
+      g.layoutNew3();
+      g.karts[8].setExpression('contento', 9999);
+      g.karts[9].setExpression('determinado', 9999);
+      g.karts[10].setExpression('eufórico', 9999);
+      g.settle(80);
+      g.setCamera([0, 1.6, 5.6], [0, 0.98, 0.1], 34);
+      g.render();
+    });
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: path.join(ROOT, 'shots', 'kart-new3.png') });
+    report.new3 = true;
   } catch (err) {
     report.errors.push('fatal: ' + (err && err.stack ? err.stack : String(err)));
   } finally {
@@ -117,7 +136,7 @@ async function main() {
   }
 
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-  process.exit(report.gallery && report.expressions ? 0 : 1);
+  process.exit(report.gallery && report.expressions && report.new3 ? 0 : 1);
 }
 
 main().catch((err) => {

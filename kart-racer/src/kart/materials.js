@@ -158,6 +158,19 @@ export function getPilotMaterial(character) {
       sheenColor: lighten(character.colors.accent, 0.4),
       envMapIntensity: 1.0,
     });
+  } else if (s === 'mechanic' || s === 'fighter') {
+    // Piel humana: mate con un brillo leve (mono/kimono también usan esto).
+    mat = new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      metalness: 0.0,
+      roughness: 0.5,
+      sheen: 0.2,
+      sheenRoughness: 0.6,
+      sheenColor: lighten(character.colors.body, 0.4),
+      clearcoat: 0.22,
+      clearcoatRoughness: 0.5,
+      envMapIntensity: 0.9,
+    });
   } else if (s === 'penguin') {
     // Plumaje sedoso, panza mate.
     mat = new THREE.MeshPhysicalMaterial({
@@ -182,6 +195,25 @@ export function getPilotMaterial(character) {
     });
   }
   pilotCache.set(character.id, mat);
+  return mat;
+}
+
+// Mechas brillantes (aura de Kenzo): emisivo que se enciende con el turbo.
+export function getPilotGlowMaterial(character) {
+  const key = 'glow:' + character.id;
+  if (pilotCache.has(key)) return pilotCache.get(key);
+  const aura = (character.look && character.look.auraColor) || character.colors.accent;
+  const mat = new THREE.MeshPhysicalMaterial({
+    vertexColors: true,
+    metalness: 0.15,
+    roughness: 0.25,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.15,
+    emissive: new THREE.Color(aura),
+    emissiveIntensity: 0,
+    envMapIntensity: 1.3,
+  });
+  pilotCache.set(key, mat);
   return mat;
 }
 

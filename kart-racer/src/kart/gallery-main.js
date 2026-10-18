@@ -70,12 +70,30 @@ function place(kart, x, z, ry) {
 }
 
 function layoutGallery() {
+  // 11 pilotos en 3 filas: 4 + 4 + 3 (tanda 4).
+  const rows = [
+    { z: 3.0, xs: [-4.3, -1.43, 1.43, 4.3] },
+    { z: -0.3, xs: [-4.3, -1.43, 1.43, 4.3] },
+    { z: -3.6, xs: [-2.9, 0, 2.9] },
+  ];
   let i = 0;
-  for (const z of [1.0, -1.9]) {
-    for (const x of [-3.4, -1.13, 1.13, 3.4]) {
-      place(karts[i], x, z, 0);
+  for (const row of rows) {
+    for (const x of row.xs) {
+      if (i >= karts.length) break;
+      karts[i].object3d.visible = true;
+      place(karts[i], x, row.z, 0);
       i++;
     }
+  }
+}
+
+// Primer plano de los 3 pilotos nuevos, en fila (el resto oculto).
+function layoutNew3() {
+  const xs = [-1.5, 0, 1.5];
+  for (let i = 0; i < karts.length; i++) {
+    const isNew = i >= 8;
+    karts[i].object3d.visible = isNew;
+    if (isNew) place(karts[i], xs[i - 8], 0.6, 0);
   }
 }
 
@@ -105,7 +123,7 @@ function setCamera(pos, look, fov) {
 
 layoutGallery();
 settle(50);
-setCamera([0, 3.1, 11.2], [0, 0.75, -0.3], 42);
+setCamera([0, 5.4, 17.5], [0, 0.8, -0.5], 40);
 
 function loop() {
   requestAnimationFrame(loop);
@@ -121,6 +139,7 @@ window.__gallery = {
   karts,
   fakeTrack,
   layoutGallery,
+  layoutNew3,
   settle,
   triangles,
   setCamera,
