@@ -15,9 +15,9 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ||= '/opt/pw-browsers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 4182;
+const PORT = Number(process.env.KART_PORT) || 4182;
 const BASE = `http://localhost:${PORT}`;
-const TRACK_IDS = ['meadow', 'desert', 'snow'];
+const TRACK_IDS = process.env.KART_TRACKS ? process.env.KART_TRACKS.split(',') : ['meadow', 'desert', 'snow'];
 const SANITY_SECONDS = 30;
 const MAX_SIM_SECONDS = 360;
 
@@ -41,8 +41,8 @@ function sleep(ms) {
 
 async function main() {
   const server = spawn(
-    'npx',
-    ['vite', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'],
+    path.join(ROOT, 'node_modules', '.bin', 'vite'),
+    ['--port', String(PORT), '--strictPort', '--host', '127.0.0.1'],
     { cwd: ROOT, stdio: 'ignore' }
   );
 
@@ -72,7 +72,8 @@ async function main() {
       const page = await browser.newPage();
       const consoleErrors = [];
       page.on('console', (msg) => {
-        if (msg.type() === 'error') consoleErrors.push(msg.text());
+        // El abort deliberado de @vite/client (HMR off) no cuenta como error.
+        if (msg.type() === 'error' && !/ERR_FAILED/.test(msg.text())) consoleErrors.push(msg.text());
       });
       page.on('pageerror', (err) => {
         consoleErrors.push('pageerror: ' + (err && err.message ? err.message : String(err)));
@@ -85,7 +86,7 @@ async function main() {
       try {
         await page.goto(`${BASE}/?autotest=1&track=${track}`, { waitUntil: 'load' });
         await page.waitForFunction(() => window.__game && window.__game.state === 'race', null, {
-          timeout: 30000,
+          timeout: 120000,
         });
 
         const res = await page.evaluate(

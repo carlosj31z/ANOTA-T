@@ -4,7 +4,8 @@
 // varias expresiones activadas con kart.setExpression.
 //
 // Uso: node scripts/kart-gallery.mjs
-// Salidas: shots/kart-gallery.png, shots/kart-expressions.png
+// Salidas: shots/kart-gallery-11.png (= kart-gallery.png), shots/kart-expressions.png,
+// shots/kart-new3.png, shots/kart-pipa-zuri.png
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +16,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ||= '/opt/pw-browsers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 4201;
+const PORT = Number(process.env.KART_PORT) || 4242;
 const BASE = `http://localhost:${PORT}`;
 
 async function waitForServer(url, timeoutMs = 40000) {
@@ -33,7 +34,7 @@ async function waitForServer(url, timeoutMs = 40000) {
 }
 
 async function main() {
-  const server = spawn('npx', ['vite', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'], {
+  const server = spawn(path.join(ROOT, 'node_modules', '.bin', 'vite'), ['--port', String(PORT), '--strictPort', '--host', '127.0.0.1'], {
     cwd: ROOT,
     stdio: 'ignore',
   });
@@ -47,7 +48,7 @@ async function main() {
   process.on('exit', cleanup);
 
   let browser = null;
-  const report = { gallery: false, expressions: false, new3: false, errors: [], stats: null };
+  const report = { gallery: false, expressions: false, new3: false, pair: false, errors: [], stats: null };
 
   try {
     const up = await waitForServer(BASE);
@@ -80,7 +81,7 @@ async function main() {
       const g = window.__gallery;
       g.layoutGallery();
       g.settle(60);
-      g.setCamera([0, 5.4, 17.5], [0, 0.8, -0.5], 40);
+      g.setCamera([0, 5.0, 13.6], [0, 0.9, -0.4], 38);
       g.render();
     });
     await page.waitForTimeout(700);
@@ -107,7 +108,7 @@ async function main() {
       g.layoutGallery();
       for (let i = 0; i < g.karts.length; i++) g.karts[i].setExpression(exprs[i], 9999);
       g.settle(70);
-      g.setCamera([0, 2.4, 9.6], [0, 1.0, -0.8], 36);
+      g.setCamera([0, 3.1, 12.4], [0, 1.0, -0.6], 38);
       g.render();
     });
     await page.waitForTimeout(700);
@@ -128,6 +129,19 @@ async function main() {
     await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(ROOT, 'shots', 'kart-new3.png') });
     report.new3 = true;
+
+    // ---- Foto 4: Pipa y Zuri (rehechos en el retoque final), de frente y 3/4 ----
+    await page.evaluate(() => {
+      const g = window.__gallery;
+      g.layoutPair(['pipa', 'zuri'], [-1.3, 1.3], [0.25, -0.25]);
+      for (const k of g.karts) k.setExpression('contento', 9999);
+      g.settle(80);
+      g.setCamera([0, 1.7, 5.0], [0, 1.0, 0.3], 32);
+      g.render();
+    });
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: path.join(ROOT, 'shots', 'kart-pipa-zuri.png') });
+    report.pair = true;
   } catch (err) {
     report.errors.push('fatal: ' + (err && err.stack ? err.stack : String(err)));
   } finally {
@@ -136,7 +150,7 @@ async function main() {
   }
 
   process.stdout.write(JSON.stringify(report, null, 2) + '\n');
-  process.exit(report.gallery && report.expressions && report.new3 ? 0 : 1);
+  process.exit(report.gallery && report.expressions && report.new3 && report.pair ? 0 : 1);
 }
 
 main().catch((err) => {

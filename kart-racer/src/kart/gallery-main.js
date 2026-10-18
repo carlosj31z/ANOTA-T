@@ -97,6 +97,105 @@ function layoutNew3() {
   }
 }
 
+// Un solo piloto (por id) en primer plano, girado ry radianes (dev / revisión).
+function layoutSolo(id, ry = 0) {
+  for (let i = 0; i < karts.length; i++) {
+    const on = karts[i].character.id === id;
+    karts[i].object3d.visible = on;
+    if (on) place(karts[i], 0, 0.6, ry);
+  }
+}
+
+// Varios pilotos (por id) en fila, cada uno con su giro; el resto oculto.
+function layoutPair(ids, xs, rys, z = 0.6) {
+  for (const k of karts) k.object3d.visible = false;
+  ids.forEach((id, i) => {
+    const k = karts.find((q) => q.character.id === id);
+    if (!k) return;
+    k.object3d.visible = true;
+    place(k, xs[i], z, rys[i] || 0);
+  });
+}
+
+// Comprobación de solapes piloto / volante / arco antivuelco. Devuelve, por
+// kart, la distancia mínima (m, mundo) de cabeza, cara, pelo y torso (con
+// morphs aplicados) al aro del volante y al arco; negativa = atraviesa.
+// Los brazos se excluyen: agarran el volante a propósito.
+function clipReport(framesPerState = 40) {
+  const out = {};
+  const v = new THREE.Vector3();
+  const tmp = new THREE.Vector3();
+  const states = [
+    { steer: 0, drift: false },
+    { steer: 1, drift: false },
+    { steer: -1, drift: false },
+    { steer: 1, drift: true },
+    { steer: -1, drift: true },
+  ];
+  for (const k of karts) {
+    const res = { steer: Infinity, steerAt: '', roll: Infinity, rollAt: '' };
+    k.object3d.visible = true;
+    place(k, 0, 0, 0);
+    const wheel = k.object3d.getObjectByName('steering');
+    const chrome = k.object3d.getObjectByName('chrome');
+    const parts = ['pilot-body', 'pilot-head', 'pilot-face', 'pilot-glow']
+      .map((n) => k.object3d.getObjectByName(n))
+      .filter(Boolean);
+    for (const st of states) {
+      k.controls.throttle = 1;
+      k.controls.steer = st.steer;
+      k.controls.drift = st.drift;
+      for (let f = 0; f < framesPerState; f++) {
+        k.update(1 / 60, fakeTrack);
+        if (f % 4 !== 3) continue;
+        k.object3d.updateMatrixWorld(true);
+        // Aro del volante: centro, eje (normal) y radios en mundo.
+        const wc = new THREE.Vector3().setFromMatrixPosition(wheel.matrixWorld);
+        const wn = new THREE.Vector3(0, 0, 1).transformDirection(wheel.matrixWorld);
+        const ws = new THREE.Vector3().setFromMatrixScale(wheel.matrixWorld).x;
+        // Arco antivuelco: semicircunferencia en el plano z = -0.56 (local kart).
+        const inv = new THREE.Matrix4().copy(chrome.matrixWorld).invert();
+        for (const m of parts) {
+          const pos = m.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i += 2) {
+            m.getVertexPosition(i, v).applyMatrix4(m.matrixWorld);
+            // volante
+            tmp.copy(v).sub(wc);
+            const h = tmp.dot(wn);
+            const inPlane = tmp.addScaledVector(wn, -h).length();
+            const dW = Math.hypot(inPlane - 0.115 * ws, h) - 0.022 * ws;
+            if (dW < res.steer) {
+              res.steer = dW;
+              res.steerAt = `${m.name}/${st.steer}/${st.drift ? 'drift' : 'normal'}`;
+            }
+            // arco (en el espacio del kart)
+            const l = v.clone().applyMatrix4(inv);
+            if (l.y >= 0.72 - 0.04) {
+              const dr = Math.hypot(Math.hypot(l.x, l.y - 0.72) - 0.34, l.z + 0.56) - 0.035;
+              if (dr < res.roll) {
+                res.roll = dr;
+                res.rollAt = `${m.name}/${st.steer}/${st.drift ? 'drift' : 'normal'}`;
+                res.rollPos = [l.x, l.y, l.z].map((q) => +q.toFixed(3));
+              }
+            }
+          }
+        }
+      }
+    }
+    k.controls.steer = 0;
+    k.controls.drift = false;
+    k.controls.throttle = 0;
+    out[k.character.id] = {
+      steer: +res.steer.toFixed(3),
+      steerAt: res.steerAt,
+      roll: +res.roll.toFixed(3),
+      rollAt: res.rollAt,
+      rollPos: res.rollPos,
+    };
+  }
+  return out;
+}
+
 function settle(frames = 50) {
   for (let f = 0; f < frames; f++) for (const k of karts) k.update(1 / 60, fakeTrack);
 }
@@ -140,7 +239,10 @@ window.__gallery = {
   fakeTrack,
   layoutGallery,
   layoutNew3,
+  layoutSolo,
+  layoutPair,
   settle,
+  clipReport,
   triangles,
   setCamera,
   render: () => renderer.render(scene, camera),

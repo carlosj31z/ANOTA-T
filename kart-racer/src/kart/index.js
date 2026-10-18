@@ -120,10 +120,12 @@ export function createKart(scene, character, opts = {}) {
 
   // --- Carrocería ---
   const chassis = new THREE.Mesh(model.chassisGeo, mats.paint);
+  chassis.name = 'chassis';
   chassis.castShadow = true;
   tilt.add(chassis);
 
   const chrome = new THREE.Mesh(model.chromeGeo, mats.chrome);
+  chrome.name = 'chrome';
   chrome.castShadow = true;
   tilt.add(chrome);
 
@@ -149,6 +151,7 @@ export function createKart(scene, character, opts = {}) {
   steeringPivot.position.set(0, 0.8, 0.52);
   steeringPivot.rotation.x = 1.05;
   const steering = new THREE.Mesh(model.steeringGeo, mats.steering);
+  steering.name = 'steering';
   steering.castShadow = true;
   steeringPivot.add(steering);
   tilt.add(steeringPivot);
@@ -164,6 +167,7 @@ export function createKart(scene, character, opts = {}) {
   const hyper = character.species === 'numbat';
 
   const bodyMesh = new THREE.Mesh(model.pilot.bodyGeo, pilotMat);
+  bodyMesh.name = 'pilot-body';
   bodyMesh.castShadow = true;
   pilot.add(bodyMesh);
 
@@ -171,6 +175,7 @@ export function createKart(scene, character, opts = {}) {
   armsGroup.position.set(anchors.arms.x, anchors.arms.y, anchors.arms.z);
   pilot.add(armsGroup);
   const armsMesh = new THREE.Mesh(model.pilot.armsGeo, pilotMat);
+  armsMesh.name = 'pilot-arms';
   armsMesh.castShadow = true;
   // La geometría ya está en coords locales del piloto: el grupo solo aporta el
   // pivote de rotación, así que compensamos con el desplazamiento inverso.
@@ -186,6 +191,7 @@ export function createKart(scene, character, opts = {}) {
   pilot.add(headGroup);
 
   const headMesh = new THREE.Mesh(model.pilot.headGeo, pilotMat);
+  headMesh.name = 'pilot-head';
   headMesh.castShadow = true;
   headMesh.scale.setScalar(HS);
   headMesh.position.set(0, -HS * NECK_Y, -HS * NECK_Z);
@@ -197,12 +203,14 @@ export function createKart(scene, character, opts = {}) {
   let screen = null;
   if (model.pilot.faceGeo) {
     faceMesh = new THREE.Mesh(model.pilot.faceGeo, faceMat);
+    faceMesh.name = 'pilot-face';
     faceMesh.scale.setScalar(HS);
     faceMesh.position.set(0, -HS * NECK_Y, -HS * NECK_Z);
     headGroup.add(faceMesh);
   }
   if (model.pilot.glowGeo) {
     glowMesh = new THREE.Mesh(model.pilot.glowGeo, glowMat);
+    glowMesh.name = 'pilot-glow';
     glowMesh.castShadow = true;
     glowMesh.scale.setScalar(HS);
     glowMesh.position.set(0, -HS * NECK_Y, -HS * NECK_Z);

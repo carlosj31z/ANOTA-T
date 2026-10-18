@@ -59,6 +59,109 @@ function limb(a, b, r) {
 // Esfera pequena soldada (ojos, narices, guantes...).
 const orb = (r, seg = 16) => ball(r, seg);
 
+// Cabezas elípticas analíticas (frog / numbat): permiten pegar a la piel la
+// boca, los parches de color y las gafas sin que floten ni se hundan.
+const ellipsoidHead = (cx, cy, cz, a, b, c) => ({
+  cx, cy, cz, a, b, c,
+  // z de la superficie delantera (+z) en (x, y); 0-ish si queda fuera.
+  z(x, y) {
+    const t = 1 - ((x - cx) / a) ** 2 - ((y - cy) / b) ** 2;
+    return cz + c * Math.sqrt(Math.max(0, t));
+  },
+  // y de la superficie superior en (x, z).
+  y(x, z) {
+    const t = 1 - ((x - cx) / a) ** 2 - ((z - cz) / c) ** 2;
+    return cy + b * Math.sqrt(Math.max(0, t));
+  },
+  normal(p) {
+    return V((p.x - cx) / (a * a), (p.y - cy) / (b * b), (p.z - cz) / (c * c)).normalize();
+  },
+});
+
+// Coloca una geometría local (x = tangente, y = bitangente, z = normal) en el
+// punto p con normal n.
+function orientTo(geo, p, n) {
+  const nn = n.clone().normalize();
+  const t = new THREE.Vector3().crossVectors(V(0, 1, 0), nn);
+  if (t.lengthSq() < 1e-6) t.set(1, 0, 0);
+  t.normalize();
+  const b = new THREE.Vector3().crossVectors(nn, t);
+  geo.applyMatrix4(new THREE.Matrix4().makeBasis(t, b, nn).setPosition(p));
+  return geo;
+}
+
+// Parche aplanado pegado a la piel (manchas, mejillas, fosas nasales...).
+function patchPart(p, n, rx, ry, th, color, roll = 0, seg = 14) {
+  const g = xf(ball(1, seg), { sx: rx, sy: ry, sz: th, rz: roll });
+  return { geo: orientTo(g, p, n), color };
+}
+
+// Tubo de sección circular siguiendo una curva (correas, aros, rayas).
+function tubePath(points, r, closed = false, tubular = 48, radial = 8) {
+  const curve = new THREE.CatmullRomCurve3(points, closed, 'catmullrom', 0.5);
+  return weld(new THREE.TubeGeometry(curve, tubular, r, radial, closed));
+}
+
+// Malla en rejilla (u, v) en [0,1]: fn(u, v) → [x, y, z]. flip invierte la cara.
+function gridGeo(nu, nv, fn, flip = false) {
+  const pos = [];
+  const idx = [];
+  for (let j = 0; j <= nv; j++) {
+    for (let i = 0; i <= nu; i++) pos.push(...fn(i / nu, j / nv));
+  }
+  for (let j = 0; j < nv; j++) {
+    for (let i = 0; i < nu; i++) {
+      const a = j * (nu + 1) + i;
+      const b = a + 1;
+      const c = a + nu + 1;
+      const d = c + 1;
+      if (flip) idx.push(a, b, c, b, d, c);
+      else idx.push(a, c, b, b, c, d);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+// Estira verticalmente (alrededor de y0) una malla de tubo: franjas más anchas.
+function deformY(geo, y0, k) {
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setY(i, y0 + (p.getY(i) - y0) * k);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// Base ortonormal [x, y, z] con z a lo largo de dir (para anillos alrededor de un eje).
+function basisFromDir(dir) {
+  const z = dir.clone().normalize();
+  const up = Math.abs(z.y) > 0.95 ? V(1, 0, 0) : V(0, 1, 0);
+  const x = new THREE.Vector3().crossVectors(up, z).normalize();
+  const y = new THREE.Vector3().crossVectors(z, x);
+  return [x, y, z];
+}
+
+// Extensión (radio en x, z mínimo y máximo) de una malla en la altura y.
+function sliceExtent(geo, y, tol = 0.012) {
+  const p = geo.attributes.position;
+  let rx = 0;
+  let zMin = Infinity;
+  let zMax = -Infinity;
+  for (let i = 0; i < p.count; i++) {
+    if (Math.abs(p.getY(i) - y) > tol) continue;
+    rx = Math.max(rx, Math.abs(p.getX(i)));
+    zMin = Math.min(zMin, p.getZ(i));
+    zMax = Math.max(zMax, p.getZ(i));
+  }
+  if (!isFinite(zMin)) return { rx: 0.1, zMin: -0.1, zMax: 0.1 };
+  return { rx, zMin, zMax };
+}
+
+const FROG_HEAD = ellipsoidHead(0, 0.59, 0.04, 0.255, 0.17, 0.195);
+const NUMBAT_HEAD = ellipsoidHead(0, ANCHORS.head.y, 0.0, 0.19, 0.2, 0.205);
+
 // ---------------------------------------------------------------------------
 // Cara geométrica: esclerótica + brillo + iris + pupila con morphs de mirada,
 // párpados con morph de parpadeo, cejas con morphs, boca con morphs.
@@ -111,10 +214,10 @@ function buildEye(face, e, irisColor) {
 
 function buildBrow(face, side, e, colors) {
   const len = e.r * (e.browLen || 1.5);
-  const anchor = V(e.x - side * e.r * 0.72, e.y + e.r * 0.86, e.z + e.r * 0.5);
+  const anchor = V(e.x - side * e.r * 0.72, e.y + e.r * (e.browH ?? 0.86), e.z + e.r * 0.5);
   let g = new THREE.CapsuleGeometry(e.browR || 0.011, len, 4, 8);
   xf(g, { rz: Math.PI / 2, rx: 0.15 });
-  xf(g, { x: anchor.x + side * len * 0.5, y: anchor.y + 0.02, z: anchor.z });
+  xf(g, { x: anchor.x + side * len * 0.5, y: anchor.y + (e.browLift ?? 0.02), z: anchor.z });
   const raise = (x, y, z) => [0, 0.03, 0];
   const angry = bendMorph(anchor, V(0, 0, 1), side * 0.85);
   face.push({
@@ -148,6 +251,72 @@ function buildMouth(face, m, mouthColor, teethColor) {
   face.push({ geo: teeth, color: teethColor, morphs: { mouthGrit: showTeeth, mouthO: showTeeth } });
 }
 
+// Boca que sigue la superficie de la cabeza (frog / numbat). m: { x, y, R, Ry,
+// tube, follow(x, y) → z, hide, fill?: color }. La línea es un tubo elíptico;
+// los morphs reutilizan los mismos nombres que buildMouth (mouthSmile, ...).
+// Con fill, una "cavidad" oscura aflora al abrir la boca (big / o).
+function buildMouthFollow(face, m, mouthColor) {
+  const { x: cx, y: cy, R, Ry, tube: tr, follow } = m;
+  const hide = m.hide ?? R * 0.7;
+  const dz = (x, y, dy) => follow(x, y + dy) - follow(x, y);
+  const pts = [];
+  const N = 72;
+  for (let k = 0; k < N; k++) {
+    const a = (k / N) * Math.PI * 2;
+    const x = cx + R * Math.cos(a);
+    const y = cy + Ry * Math.sin(a);
+    pts.push(V(x, y, follow(x, y) + tr * 0.3));
+  }
+  const ring = tubePath(pts, tr, true, 120, 8);
+  const sag = (k) => -Ry * k;
+  const lowerOnly = (up, down) => (x, y, z) => (y > cy ? up(x, y, z) : down(x, y, z));
+  const hideUp = () => [0, 0, -hide];
+  face.push({
+    geo: ring,
+    color: mouthColor,
+    morphs: {
+      mouthSmile: lowerOnly(hideUp, (x, y) => [0, sag(0.12), dz(x, y, sag(0.12))]),
+      mouthBig: lowerOnly(hideUp, (x, y) => [0, sag(0.95), dz(x, y, sag(0.95))]),
+      mouthO: (x, y, z) => [0, 0, 0],
+      mouthFrown: (x, y, z) =>
+        y < cy ? [0, 0, -hide] : [0, Ry * 0.5, dz(x, y, Ry * 0.5)],
+      mouthGrit: () => [0, 0, -hide * 0.9],
+    },
+  });
+
+  if (m.fill) {
+    const sink = 0.03;
+    const half = (sign) =>
+      gridGeo(
+        28,
+        5,
+        (u, v) => {
+          const uu = u * 2 - 1;
+          const x = cx + uu * (R - tr * 0.8);
+          const y = cy + sign * v * Ry * Math.sqrt(Math.max(0, 1 - uu * uu)) * 0.98;
+          return [x, y, follow(x, y) - sink];
+        },
+        sign > 0
+      );
+    const prof = (x) => Math.sqrt(Math.max(1e-4, 1 - ((x - cx) / R) ** 2));
+    const lowerFill = (k) => (x, y) => {
+      const v = Math.min(1, Math.max(0, (cy - y) / (Ry * prof(x))));
+      const dy = sag(k) * v;
+      return [0, dy, dz(x, y, dy) + sink + 0.012];
+    };
+    face.push({
+      geo: half(-1),
+      color: m.fill,
+      morphs: { mouthBig: lowerFill(0.95), mouthO: lowerFill(0) },
+    });
+    face.push({
+      geo: half(1),
+      color: m.fill,
+      morphs: { mouthO: (x, y) => [0, 0, sink + 0.012] },
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Configuración de cara por especie (en espacio final de la cabeza).
 // ---------------------------------------------------------------------------
@@ -172,17 +341,37 @@ function faceConfig(species, colors, head) {
         iris: 0x7a4a12,
         mouth: { x: hx, y: hy - 0.06, z: hz + 0.235, R: 0.045, tube: 0.013 },
       };
-    case 'frog':
+    case 'frog': {
+      const H = FROG_HEAD;
+      const skin = (colors.look || {}).skinColor || colors.body;
       return {
         ...base,
-        mouthColor: 0x123018,
-        eyes: [
-          { x: hx - 0.125, y: hy + 0.075, z: hz + 0.11, r: 0.06, lidColor: colors.body },
-          { x: hx + 0.125, y: hy + 0.075, z: hz + 0.11, r: 0.06, lidColor: colors.body },
-        ],
+        mouthColor: 0x0f2a14,
+        eyes: [-1, 1].map((sd) => ({
+          x: sd * 0.12,
+          y: H.y(0.12, 0.07) + 0.002,
+          z: H.cz + 0.07,
+          r: 0.07,
+          lidColor: skin,
+          browColor: 0x23863a,
+          browR: 0.017,
+          browLen: 1.15,
+          browH: 0.8,
+          browLift: 0.004,
+        })),
         iris: 0xc9a227,
-        mouth: { x: hx, y: hy - 0.09, z: hz + 0.15, R: 0.12, tube: 0.016 },
+        mouth: {
+          x: 0,
+          y: H.cy - 0.03,
+          R: 0.2,
+          Ry: 0.062,
+          tube: 0.011,
+          hide: 0.13,
+          fill: 0x3d0f1a,
+          follow: (x, y) => H.z(x, y),
+        },
       };
+    }
     case 'penguin':
       return {
         ...base,
@@ -255,17 +444,37 @@ function faceConfig(species, colors, head) {
         iris: 0x1a8f86,
         mouth: { x: hx, y: hy - 0.06, z: hz + 0.205, R: 0.04, tube: 0.012 },
       };
-    case 'numbat':
+    case 'numbat': {
+      const H = NUMBAT_HEAD;
+      const mask = (colors.look || {}).maskColor || 0x2a1812;
       return {
         ...base,
-        mouthColor: 0x33201a,
-        eyes: [
-          { x: hx - 0.075, y: hy + 0.055, z: hz + 0.145, r: 0.05, lidColor: (colors.look || {}).furColor || 0xd5732f, browColor: 0x6b3a18 },
-          { x: hx + 0.075, y: hy + 0.055, z: hz + 0.145, r: 0.05, lidColor: (colors.look || {}).furColor || 0xd5732f, browColor: 0x6b3a18 },
-        ],
+        mouthColor: 0x2a1410,
+        eyes: [-1, 1].map((sd) => ({
+          x: sd * 0.088,
+          y: H.cy + 0.03,
+          z: H.z(0.088, H.cy + 0.03) - 0.012,
+          r: 0.04,
+          lidColor: mask,
+          browColor: mask,
+          browR: 0.0095,
+          browLen: 1.3,
+          browH: 0.8,
+          browLift: 0.0,
+        })),
         iris: 0x3a2414,
-        mouth: { x: hx, y: hy - 0.075, z: hz + 0.3, R: 0.03, tube: 0.01 },
+        mouth: {
+          x: 0,
+          y: H.cy - 0.108,
+          R: 0.085,
+          Ry: 0.04,
+          tube: 0.009,
+          hide: 0.1,
+          fill: 0x3a1214,
+          follow: (x, y) => H.z(x, y),
+        },
       };
+    }
     default:
       return {
         ...base,
@@ -410,37 +619,80 @@ function buildRobot(colors, body, head, face, arms) {
 }
 
 function buildFrog(colors, body, head, face, arms) {
-  const b = colors.body;
-  const a = colors.accent;
-  // Cuerpo bajo y ancho.
-  body.push({ geo: xf(torsoParts(), { sy: 0.8, sx: 1.15, sz: 1.05 }), color: b });
-  // Manchas.
-  for (const [mx, my, mz, mr] of [
-    [0.1, 0.22, 0.1, 0.03],
-    [-0.12, 0.18, 0.06, 0.025],
-    [0.04, 0.3, -0.05, 0.022],
-  ]) {
-    body.push({ geo: xf(orb(mr, 12), { x: mx, y: my, z: mz, sz: 0.4 }), color: 0x2f8f38 });
+  const L = colors.look || {};
+  const b = L.skinColor ?? colors.body;
+  const belly = L.bellyColor ?? colors.accent;
+  const cheek = L.cheekColor ?? 0xff8c9e;
+  const dark = 0x1f7a2c;
+  const H = FROG_HEAD;
+
+  // Cuerpo bajo y ancho con barriga clara.
+  const torso = xf(torsoParts(), { sy: 0.97, sx: 1.15, sz: 1.05 });
+  body.push({ geo: torso, color: b });
+  body.push({ geo: xf(blob(0.145, (v) => { v.z *= 0.5; v.y *= 1.2; v.x *= 1.0; }, 28, 20), { x: 0, y: 0.25, z: 0.13 }), color: belly });
+
+  // Manchas oscuras en el lomo y los costados (pegadas al torso).
+  const spots = [
+    [-0.075, 0.41, 0.03], [0.07, 0.38, 0.036], [0.0, 0.32, 0.03], [-0.115, 0.27, 0.034],
+    [0.115, 0.23, 0.03], [0.0, 0.2, 0.028], [-0.04, 0.44, 0.022],
+  ];
+  for (const [x, y, r] of spots) {
+    const e = sliceExtent(torso, y);
+    const cz = (e.zMin + e.zMax) / 2;
+    const rz = (e.zMax - e.zMin) / 2;
+    const zz = cz - rz * Math.sqrt(Math.max(0.05, 1 - (x / e.rx) ** 2));
+    const n = V(x / (e.rx * e.rx), 0.12, (zz - cz) / (rz * rz)).normalize();
+    body.push(patchPart(V(x, y, zz), n, r, r * 0.85, 0.012, dark));
   }
-  // Cresta dorsal (rasgo trasero identificable).
-  for (let i = 0; i < 3; i++) {
-    body.push({ geo: xf(blob(0.03, (v) => { v.y += 0.02; v.z *= 0.45; }, 12, 8), { x: 0, y: 0.34 - i * 0.02, z: -0.02 - i * 0.09 }), color: a });
-  }
-  // Cabeza ancha y achatada, con la cara (ojos saltones y boca ancha) bien
-  // visible de frente y desde la cámara lateral. Sin tallos.
-  let shell = headShell((v) => {
-    v.x *= 1.32;
-    v.y *= 0.72;
-    v.z *= 1.04;
-    const cheek = Math.exp(-((Math.abs(v.x) - 0.12) ** 2 + (v.y + 0.02) ** 2) * 34);
-    v.x += Math.sign(v.x) * cheek * 0.022;
-  });
-  head.push({ geo: xf(shell, { x: ANCHORS.head.x, y: ANCHORS.head.y - 0.05, z: ANCHORS.head.z + 0.01 }), color: b });
-  // Ojos saltones: cúpulas verdes que nacen directamente de la cabeza.
   for (const side of [1, -1]) {
-    head.push({ geo: xf(orb(0.082, 16), { x: ANCHORS.head.x + side * 0.125, y: ANCHORS.head.y + 0.055, z: ANCHORS.head.z + 0.06, sy: 0.92 }), color: b });
+    for (const [y, r] of [[0.3, 0.032], [0.2, 0.026]]) {
+      const e = sliceExtent(torso, y);
+      const cz = (e.zMin + e.zMax) / 2;
+      body.push(patchPart(V(side * e.rx * 0.985, y, cz - 0.03), V(side, 0.05, -0.15), r, r * 0.9, 0.012, dark, 0.2));
+    }
   }
-  buildArmsCommon(colors, arms);
+
+  // Cabeza ancha y achatada: elipsoide puro (la cara se calcula sobre él).
+  const shell = headShell((v) => {
+    v.x *= H.a / HEAD_R;
+    v.y *= H.b / HEAD_R;
+    v.z *= H.c / HEAD_R;
+  });
+  head.push({ geo: xf(shell, { x: H.cx, y: H.cy, z: H.cz }), color: b });
+
+  // Ojos saltones sobre la cabeza (sin tallos): una cúpula verde los arropa.
+  for (const side of [1, -1]) {
+    head.push({ geo: xf(orb(0.083, 18), { x: side * 0.12, y: H.y(0.12, 0.05) - 0.03, z: H.cz + 0.04, sy: 0.88 }), color: b });
+  }
+  // Mejillas rosadas, fosas nasales y manchas oscuras en la espalda de la cabeza.
+  for (const side of [1, -1]) {
+    const p = V(side * 0.175, H.cy - 0.012, 0);
+    p.z = H.z(p.x, p.y) - 0.004;
+    head.push(patchPart(p, H.normal(p), 0.042, 0.03, 0.012, cheek, side * 0.25));
+    const nx = side * 0.036;
+    const nz = H.cz + 0.185;
+    const np = V(nx, H.y(nx, nz), nz);
+    head.push(patchPart(np, H.normal(np), 0.011, 0.007, 0.008, 0x1d5a29));
+  }
+  for (const [x, z, r] of [
+    [0, -0.075, 0.036], [-0.085, -0.035, 0.03], [0.09, -0.05, 0.033], [-0.15, -0.1, 0.034],
+    [0.155, -0.11, 0.03], [0, -0.15, 0.03],
+  ]) {
+    const p = V(x, H.y(x, z) - 0.002, z);
+    head.push(patchPart(p, H.normal(p), r, r * 0.9, 0.012, dark, x * 3));
+  }
+
+  // Brazos verdes con manos de dedos redondeados.
+  const handC = 0x86ec76;
+  for (const side of [1, -1]) {
+    const shoulder = V(side * 0.18, 0.3, 0.02);
+    const hand = V(side * 0.13, 0.24, 0.52);
+    arms.push({ geo: limb(shoulder, hand, 0.052), color: b });
+    arms.push({ geo: xf(orb(0.072, 14), { x: hand.x, y: hand.y, z: hand.z }), color: handC });
+    for (const [dx, dy, dz] of [[-0.04, 0.012, 0.062], [0, 0.026, 0.074], [0.04, 0.012, 0.062]]) {
+      arms.push({ geo: xf(orb(0.027, 10), { x: hand.x + dx, y: hand.y + dy, z: hand.z + dz }), color: handC });
+    }
+  }
 }
 
 function buildPenguin(colors, body, head, face, arms) {
@@ -751,65 +1003,210 @@ function buildFighter(colors, body, head, face, arms, glow) {
   }
 }
 
-// Zuri — numbat rojizo rayado, hocico largo, gafas de aviador, cola esponjosa.
+// Cola esponjosa: tubo de radio variable con pelo erizado (ruido de alta
+// frecuencia) que sigue una curva. radiusAt(u) con u en [0,1] a lo largo.
+function fluffTail(points, radiusAt, bristle = 0.2) {
+  const radial = 16;
+  const tubular = 40;
+  const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.5);
+  const g = new THREE.TubeGeometry(curve, tubular, 1, radial, false);
+  const p = g.attributes.position;
+  const c = new THREE.Vector3();
+  const d = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    const u = Math.floor(i / (radial + 1)) / tubular;
+    curve.getPointAt(u, c);
+    d.fromBufferAttribute(p, i).sub(c);
+    const n = sNoise(c.x * 22 + d.x * 9, c.y * 22 + d.y * 9, c.z * 22 + d.z * 9);
+    const k = radiusAt(u) * (1 + bristle * n);
+    p.setXYZ(i, c.x + d.x * k, c.y + d.y * k, c.z + d.z * k);
+  }
+  return weld(g);
+}
+
+// Zuri — numbat rojizo rayado, hocico largo y fino, gafas de aviador sobre la
+// frente, cola larga y esponjosa que asoma por encima del respaldo.
 function buildNumbat(colors, body, head, face, arms) {
   const L = colors.look || {};
-  const fur = L.furColor ?? 0xd5732f;
+  const fur = new THREE.Color(L.furColor ?? 0xd5732f).lerp(new THREE.Color(0xa83a14), 0.35).getHex();
   const stripe = L.stripeColor ?? 0xffffff;
   const snout = L.snoutColor ?? 0xf3d8b8;
   const vest = L.vestColor ?? 0xa8e020;
   const shoe = L.shoeColor ?? 0xff3b3b;
-  const gog = L.gogglesColor ?? 0x6b4a1f;
+  const strap = L.gogglesColor ?? 0x6b4a1f;
   const lens = L.gogglesLensColor ?? 0x3ab0ff;
+  const mask = L.maskColor ?? 0x2a1812;
+  const brass = 0xb98a2a;
+  const H = NUMBAT_HEAD;
 
-  // Cuerpo compacto.
-  body.push({ geo: xf(torsoParts(), { sx: 0.98, sy: 0.98, sz: 1.02 }), color: fur });
-  // Rayas blancas transversales en el lomo y ancas.
-  for (let i = 0; i < 5; i++) {
-    const z = 0.05 - i * 0.06;
-    const y = 0.34 - i * 0.012;
-    body.push({ geo: xf(blob(0.045, (v) => { v.x *= 2.6; v.z *= 0.28; v.y *= 0.45; }, 14, 10), { x: 0, y, z }), color: stripe });
+  // Cuerpo esbelto.
+  const torso = xf(torsoParts(), { sx: 0.92, sy: 1.04, sz: 0.98 });
+  body.push({ geo: torso, color: fur });
+
+  // Chaleco verde lima: panel delantero amplio y faldón bajo en la espalda.
+  body.push({ geo: xf(blob(0.15, (v) => { v.z *= 0.55; v.y *= 1.3; v.x *= 0.95; }, 26, 20), { x: 0, y: 0.28, z: 0.11 }), color: vest });
+  body.push({ geo: xf(blob(0.14, (v) => { v.z *= 0.5; v.y *= 0.85; v.x *= 0.95; }, 24, 18), { x: 0, y: 0.17, z: -0.1 }), color: vest });
+
+  // RAYAS BLANCAS transversales que rodean el lomo y se enroscan hacia los
+  // costados (visibles de lado y desde atrás y arriba). [y, [[desde, hasta] grados desde atrás]]
+  const full = [[-128, 128]];
+  const sides = [[-128, -58], [58, 128]];
+  const bands = [[0.46, full], [0.4, full], [0.34, full], [0.28, sides], [0.22, sides], [0.16, sides]];
+  for (const [y, ranges] of bands) {
+    const e = sliceExtent(torso, y);
+    const cz = (e.zMin + e.zMax) / 2;
+    const rzB = cz - e.zMin + 0.011;
+    const rzF = e.zMax - cz + 0.011;
+    const rx = e.rx + 0.011;
+    for (const [d0, d1] of ranges) {
+      const pts = [];
+      const n = 22;
+      for (let k = 0; k <= n; k++) {
+        const a = ((d0 + ((d1 - d0) * k) / n) * Math.PI) / 180;
+        const cs = Math.cos(a);
+        pts.push(V(rx * Math.sin(a), y, cz - (cs >= 0 ? rzB : rzF) * cs));
+      }
+      const g = tubePath(pts, 0.0125, false, 40, 6);
+      deformY(g, y, 1.55);
+      body.push({ geo: g, color: stripe });
+    }
   }
-  // Chaleco verde lima.
-  body.push({ geo: xf(blob(0.15, (v) => { v.z *= 0.55; v.y *= 1.3; v.x *= 0.98; }, 26, 20), { x: 0, y: 0.28, z: 0.11 }), color: vest });
-  body.push({ geo: xf(blob(0.14, (v) => { v.z *= 0.5; v.y *= 1.22; v.x *= 0.95; }, 24, 18), { x: 0, y: 0.29, z: -0.1 }), color: vest });
-  // Cola larga y esponjosa (pelo erizado) que ondea.
-  const tailBase = V(0, 0.18, -0.15);
-  let tail = blob(0.1, (v) => {
-    v.y *= 0.5;
-    v.z *= 2.6;
-    const n = sNoise(v.x * 24, v.y * 24, v.z * 24);
-    const k = 1 + 0.18 * n;
-    v.x *= k;
-    v.y *= k;
-  }, 26, 20);
-  xf(tail, { x: tailBase.x, y: tailBase.y + 0.02, z: tailBase.z - 0.24, rx: 0.3 });
-  const tailM = { tailSwing: bendMorph(tailBase, V(0, 1, 0), 0.45), tailUp: bendMorph(tailBase, V(1, 0, 0), -0.5) };
-  body.push({ geo: tail, color: fur, morphs: tailM });
-  body.push({ geo: xf(orb(0.06, 14), { x: tailBase.x, y: tailBase.y + 0.06, z: tailBase.z - 0.62, sy: 1.2 }), color: 0xf7e3c8, morphs: tailM });
+
+  // Cola larga y MUY esponjosa: sale por detrás del respaldo (por el hueco del
+  // arco), sube y se curva; punta clara.
+  const tailBase = V(0, 0.18, -0.12);
+  const tailPts = [
+    V(0, 0.18, -0.12), V(0, 0.25, -0.27), V(0, 0.31, -0.39), V(0.02, 0.42, -0.5),
+    V(0.09, 0.56, -0.56), V(0.16, 0.65, -0.52), V(0.2, 0.71, -0.44),
+  ];
+  const tailR = (u) => 0.026 + 0.042 * Math.sin(Math.min(1, u * 1.1) * Math.PI * 0.66) ** 1.1;
+  const tailG = fluffTail(tailPts, tailR, 0.16);
+  const tailM = { tailSwing: bendMorph(tailBase, V(0, 0, 1), 0.32), tailUp: bendMorph(tailBase, V(1, 0, 0), -0.4) };
+  body.push({ geo: tailG, color: fur, morphs: tailM });
+  {
+    // Pelo erizado: penachos cónicos barridos hacia la punta (cola de cepillo).
+    const curve = new THREE.CatmullRomCurve3(tailPts, false, 'catmullrom', 0.5);
+    const up = V(0, 1, 0);
+    const q = new THREE.Quaternion();
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 1; i <= 19; i++) {
+      const u = i / 20;
+      const c = curve.getPointAt(u);
+      const tg = curve.getTangentAt(u);
+      const [bx, by] = basisFromDir(tg);
+      const r = tailR(u);
+      const n = u < 0.25 ? 4 : 8;
+      for (let k = 0; k < n; k++) {
+        const ang = (k / n) * Math.PI * 2 + rnd() * 0.8;
+        const rad = bx.clone().multiplyScalar(Math.cos(ang)).addScaledVector(by, Math.sin(ang));
+        const dir = rad.clone().multiplyScalar(0.7).addScaledVector(tg, 0.7).normalize();
+        const taper = Math.min(1, 0.45 + u * 1.2);
+        const len = (0.024 + 0.01 * rnd() + r * 0.3) * taper;
+        const wid = (0.016 + r * 0.2) * taper;
+        const g = blob(1, (v) => { v.x *= wid; v.y *= wid; v.z *= len; }, 10, 8);
+        const [tx, ty, tz] = basisFromDir(dir);
+        const pos = c.clone().addScaledVector(rad, r * 0.9).addScaledVector(dir, len * 0.45);
+        g.applyMatrix4(new THREE.Matrix4().makeBasis(tx, ty, tz).setPosition(pos));
+        body.push({ geo: g, color: k % 3 === 0 ? 0xe58a4a : fur, morphs: tailM });
+      }
+    }
+    // Punta clara.
+    const tipP = curve.getPointAt(1);
+    const tipT = curve.getTangentAt(1);
+    const tip = cone(0.05, 0.13, 10);
+    q.setFromUnitVectors(up, tipT);
+    tip.applyQuaternion(q);
+    tip.translate(tipP.x - tipT.x * 0.03, tipP.y - tipT.y * 0.03, tipP.z - tipT.z * 0.03);
+    body.push({ geo: tip, color: 0xf7e3c8, morphs: tailM });
+  }
+
   // Zapatillas.
   for (const side of [1, -1]) {
     body.push({ geo: xf(blob(0.06, (v) => { v.z *= 1.5; v.y *= 0.6; }, 14, 10), { x: side * 0.12, y: 0.07, z: 0.06 }), color: shoe });
   }
-  // Cabeza con hocico largo y fino.
-  let shell = headShell((v) => { v.x *= 1.04; v.y *= 1.0; v.z *= 1.0; });
-  head.push({ geo: xf(shell, ANCHORS.head), color: fur });
-  head.push({ geo: xf(blob(0.07, (v) => { v.z *= 2.4; v.y *= 0.62; v.x *= 0.62; }, 26, 18), { x: 0, y: ANCHORS.head.y - 0.03, z: ANCHORS.head.z + 0.19 }), color: snout });
-  head.push({ geo: xf(orb(0.03, 12), { x: 0, y: ANCHORS.head.y - 0.03, z: ANCHORS.head.z + 0.35, sz: 0.9 }), color: 0x14100e });
-  // Orejas pequeñas redondeadas (nacen del cráneo).
+
+  // Cabeza de numbat: cráneo algo estrecho + hocico LARGO y fino.
+  const shell = headShell((v) => {
+    v.x *= H.a / HEAD_R;
+    v.y *= H.b / HEAD_R;
+    v.z *= H.c / HEAD_R;
+  });
+  head.push({ geo: xf(shell, { x: H.cx, y: H.cy, z: H.cz }), color: fur });
+  const sBase = 0.066;
+  const snoutGeo = blob(1, (v) => {
+    const u = (v.z + 1) / 2;
+    const k = sBase * (1 - 0.7 * u);
+    v.x *= k;
+    v.y *= k * 0.86;
+    v.y += H.cy - 0.03 - 0.06 * u;
+    v.z = H.cz + 0.1 + u * 0.34;
+  }, 30, 22);
+  head.push({ geo: snoutGeo, color: snout });
+  head.push({ geo: xf(orb(0.026, 14), { x: 0, y: H.cy - 0.09 + 0.002, z: H.cz + 0.435, sz: 0.9, sy: 0.88 }), color: 0x14100e });
+
+  // Antifaz oscuro a través de cada ojo (franja del numbat real).
   for (const side of [1, -1]) {
-    const eBase = V(ANCHORS.head.x + side * 0.13, ANCHORS.head.y + 0.1, ANCHORS.head.z - 0.02);
+    const x = side * 0.105;
+    const y = H.cy + 0.032;
+    const pp = V(x, y, H.z(x, y) - 0.002);
+    head.push(patchPart(pp, H.normal(pp), 0.072, 0.026, 0.012, mask, side * 0.22, 18));
+  }
+
+  // Orejas pequeñas y redondeadas (nacen del cráneo).
+  for (const side of [1, -1]) {
+    const eBase = V(side * 0.134, H.cy + 0.128, -0.035);
     const m = { earBend: bendMorph(eBase, V(1, 0, 0), -0.7), earWag: bendMorph(eBase, V(0, 0, 1), side * 0.5) };
-    head.push({ geo: xf(orb(0.055, 14), { x: eBase.x, y: eBase.y, z: eBase.z, sz: 0.55 }), color: fur, morphs: m });
-    head.push({ geo: xf(orb(0.03, 10), { x: eBase.x, y: eBase.y, z: eBase.z + 0.03, sz: 0.5 }), color: 0xffd9b0, morphs: m });
+    head.push({ geo: xf(orb(0.052, 16), { x: eBase.x, y: eBase.y, z: eBase.z, sz: 0.5, ry: side * 0.55 }), color: fur, morphs: m });
+    head.push({ geo: xf(orb(0.03, 10), { x: eBase.x + side * 0.004, y: eBase.y - 0.004, z: eBase.z + 0.016, sz: 0.4, ry: side * 0.55 }), color: 0xffd9b0, morphs: m });
   }
-  // Gafas de aviador sobre la frente (cristales con reflejo).
+
+  // Gafas de aviador subidas a la frente: correa fina + dos cristales redondos
+  // grandes con montura de latón, puente, tornillos y reflejo.
+  {
+    const dy = 0.098;
+    const sy = H.cy + dy;
+    const k = Math.sqrt(1 - (dy / H.b) ** 2);
+    const rxS = H.a * k + 0.006;
+    const rzS = H.c * k + 0.006;
+    const sp = [];
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      sp.push(V(rxS * Math.sin(a), sy, H.cz + rzS * Math.cos(a)));
+    }
+    const sg = tubePath(sp, 0.009, true, 80, 6);
+    deformY(sg, sy, 1.9);
+    head.push({ geo: sg, color: strap });
+    for (const side of [1, -1]) {
+      const d = V(side * 0.082, 0.128, 0);
+      d.z = Math.sqrt(Math.max(0.004, 0.2 * 0.2 - d.x * d.x - d.y * d.y));
+      const n = d.clone().normalize();
+      const pos = V(H.cx, H.cy, H.cz).addScaledVector(n, 0.2);
+      const put = (geo) => orientTo(geo, pos, n);
+      head.push({ geo: put(torus(0.054, 0.0125, 10, 28)), color: brass });
+      head.push({ geo: put(xf(ball(1, 20), { sx: 0.053, sy: 0.053, sz: 0.012, z: -0.002 })), color: lens });
+      head.push({ geo: put(xf(ball(1, 10), { sx: 0.017, sy: 0.007, sz: 0.006, x: -0.02 * side, y: 0.026, z: 0.01, rz: side * 0.7 })), color: 0xffffff });
+      head.push({ geo: put(xf(ball(1, 8), { sx: 0.012, sy: 0.012, sz: 0.01, x: 0.045 * side, y: -0.012, z: -0.002 })), color: brass });
+    }
+    // Puente entre los dos aros.
+    head.push({ geo: limb(V(-0.04, H.cy + 0.158, H.cz + 0.123), V(0.04, H.cy + 0.158, H.cz + 0.123), 0.009), color: brass });
+  }
+
+  // Brazos pelirrojos con bandas blancas en el antebrazo y manos blancas.
   for (const side of [1, -1]) {
-    head.push({ geo: xf(torus(0.05, 0.014, 8, 16), { x: side * 0.085, y: ANCHORS.head.y + 0.12, z: ANCHORS.head.z + 0.12, rx: 0.5, rz: side * 0.15 }), color: gog });
-    head.push({ geo: xf(orb(0.045, 14), { x: side * 0.085, y: ANCHORS.head.y + 0.12, z: ANCHORS.head.z + 0.13, sz: 0.25 }), color: lens });
+    const shoulder = V(side * 0.17, 0.3, 0.02);
+    const hand = V(side * 0.13, 0.24, 0.52);
+    arms.push({ geo: limb(shoulder, hand, 0.05), color: fur });
+    arms.push({ geo: xf(orb(0.072, 12), { x: hand.x, y: hand.y, z: hand.z }), color: colors.accent });
+    const dir = hand.clone().sub(shoulder);
+    const dn = dir.clone().normalize();
+    for (const t of [0.17, 0.33, 0.49]) {
+      const c = shoulder.clone().addScaledVector(dir, t);
+      const ring = xf(torus(0.0495, 0.0075, 6, 20), { sz: 3.2 });
+      ring.applyMatrix4(new THREE.Matrix4().makeBasis(...basisFromDir(dn)).setPosition(c));
+      arms.push({ geo: ring, color: stripe });
+    }
   }
-  head.push({ geo: xf(torus(0.2, 0.012, 6, 20), { x: 0, y: ANCHORS.head.y + 0.12, z: ANCHORS.head.z - 0.02, rx: Math.PI / 2 * 0.92 }), color: gog });
-  buildArmsCommon(colors, arms);
 }
 
 // ---------------------------------------------------------------------------
@@ -1031,7 +1428,8 @@ export function buildPilot(character) {
     const cfg = faceConfig(species, colors, head);
     for (const e of cfg.eyes) buildEye(g.face, e, cfg.iris);
     for (const e of cfg.eyes) buildBrow(g.face, e.x < head.x ? 1 : -1, e, colors);
-    if (cfg.mouth) buildMouth(g.face, cfg.mouth, cfg.mouthColor, cfg.teethColor);
+    if (cfg.mouth && cfg.mouth.follow) buildMouthFollow(g.face, cfg.mouth, cfg.mouthColor);
+    else if (cfg.mouth) buildMouth(g.face, cfg.mouth, cfg.mouthColor, cfg.teethColor);
   }
 
   const bodyGeo = mergeParts(g.body);

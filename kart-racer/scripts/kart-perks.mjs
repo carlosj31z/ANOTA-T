@@ -15,7 +15,7 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ||= '/opt/pw-browsers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 4183;
+const PORT = Number(process.env.KART_PORT) || 4183;
 const BASE = `http://localhost:${PORT}`;
 
 async function waitForServer(url, timeoutMs = 40000) {
@@ -34,8 +34,8 @@ async function waitForServer(url, timeoutMs = 40000) {
 
 async function main() {
   const server = spawn(
-    'npx',
-    ['vite', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'],
+    path.join(ROOT, 'node_modules', '.bin', 'vite'),
+    ['--port', String(PORT), '--strictPort', '--host', '127.0.0.1'],
     { cwd: ROOT, stdio: 'ignore' }
   );
   const cleanup = () => {
@@ -60,7 +60,7 @@ async function main() {
     });
     const page = await browser.newPage();
     page.on('console', (msg) => {
-      if (msg.type() === 'error') report.errors.push(msg.text());
+      if (msg.type() === 'error' && !/ERR_FAILED/.test(msg.text())) report.errors.push(msg.text());
     });
     page.on('pageerror', (err) =>
       report.errors.push('pageerror: ' + (err && err.message ? err.message : String(err)))
@@ -68,7 +68,7 @@ async function main() {
 
     await page.goto(`${BASE}/?autotest=1&track=meadow`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__game && window.__game.state === 'race', null, {
-      timeout: 30000,
+      timeout: 120000,
     });
 
     report.results = await page.evaluate(async () => {

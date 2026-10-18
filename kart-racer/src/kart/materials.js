@@ -147,16 +147,18 @@ export function getPilotMaterial(character) {
       envMapIntensity: 1.15,
     });
   } else if (s === 'frog' || s === 'dino') {
-    // Piel brillante húmeda.
+    // Piel brillante húmeda (la rana con un brillo verdoso suave: el sheen
+    // claro la dejaba lavada).
+    const frog = s === 'frog';
     mat = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
       metalness: 0.0,
       roughness: 0.3,
       clearcoat: 1.0,
       clearcoatRoughness: 0.18,
-      sheen: 0.25,
-      sheenColor: lighten(character.colors.accent, 0.4),
-      envMapIntensity: 1.0,
+      sheen: frog ? 0.12 : 0.25,
+      sheenColor: frog ? new THREE.Color(0x8cf27a) : lighten(character.colors.accent, 0.4),
+      envMapIntensity: frog ? 0.85 : 1.0,
     });
   } else if (s === 'mechanic' || s === 'fighter') {
     // Piel humana: mate con un brillo leve (mono/kimono también usan esto).
@@ -181,6 +183,17 @@ export function getPilotMaterial(character) {
       sheenRoughness: 0.5,
       sheenColor: lighten(character.colors.accent, 0.55),
       envMapIntensity: 0.9,
+    });
+  } else if (s === 'numbat') {
+    // Pelaje rojizo: sheen suave y cálido (el sheen claro lo dejaba melocotón).
+    mat = new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      metalness: 0.0,
+      roughness: 0.78,
+      sheen: 0.3,
+      sheenRoughness: 0.6,
+      sheenColor: new THREE.Color(0xe08050),
+      envMapIntensity: 0.8,
     });
   } else {
     // Pelaje: sheen intenso.
