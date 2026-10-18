@@ -445,9 +445,19 @@ export function createTrack(scene, trackId) {
   }
 
   // ----------------------------------------------------------------
+  // Escenario temático. Se construye ANTES que el terreno porque el tema
+  // define `ambient`: los colores del propio terreno, el cielo, la niebla y
+  // las luces. (Antes se leía `cfg.theme.ambient`, es decir una propiedad de
+  // la función, no del objeto que devuelve; por eso todo caía en el verde
+  // por defecto y desert/snow se veían como prado.)
+  // ----------------------------------------------------------------
+  const ctx = { samples, half, band: BAND, isOnTrack, rnd, length, centroid, sampleAt };
+  const theme = cfg.theme(ctx);
+  const ambient = theme.ambient || {};
+
+  // ----------------------------------------------------------------
   // Terreno de fondo (hasta el horizonte, sin huecos).
   // ----------------------------------------------------------------
-  const ambient = cfg.theme.ambient || {};
   const useVC = typeof ambient.terrainColor === 'function';
   const tmpColor = new THREE.Color();
   {
@@ -530,10 +540,8 @@ export function createTrack(scene, trackId) {
   scene.fog = new THREE.Fog(ambient.fog || 0xbcdcff, ambient.fogNear ?? 240, ambient.fogFar ?? 1300);
 
   // ----------------------------------------------------------------
-  // Escenario temático + estructuras comunes.
+  // Estructuras comunes.
   // ----------------------------------------------------------------
-  const ctx = { samples, half, band: BAND, isOnTrack, rnd, length, centroid, sampleAt };
-  const theme = cfg.theme(ctx);
   group.add(theme.group);
   if (theme.update) updaters.push(theme.update);
 
@@ -728,4 +736,24 @@ export function createTrack(scene, trackId) {
   }
 
   return api;
+}
+
+// ----------------------------------------------------------------
+// Silueta ligera del trazado para miniaturas de la interfaz.
+// ~120 puntos de la línea central en coordenadas de mundo (x, z).
+// No crea escena ni mallas: deriva de los MISMOS puntos de control que usa
+// `createTrack` (construye la misma CatmullRom centripeta cerrada).
+// ----------------------------------------------------------------
+export function getTrackOutline(trackId) {
+  const def = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
+  const cfg = TRACK_CONFIG[def.id] || TRACK_CONFIG.meadow;
+  const cpoints = cfg.controlPoints.map((p) => new THREE.Vector3(p[0], p[2] || 0, p[1]));
+  const curve = new THREE.CatmullRomCurve3(cpoints, true, 'centripetal');
+  const count = 120;
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const p = curve.getPointAt(i / count);
+    out.push({ x: p.x, z: p.z });
+  }
+  return out;
 }

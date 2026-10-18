@@ -13,6 +13,7 @@
       "git stash*": "deny",
       "git rebase*": "deny",
       "rm -rf /*": "deny"
-    }
+    },
+    "external_directory": "allow"
   }
 }

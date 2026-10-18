@@ -304,3 +304,34 @@ Autotest: `?autotest=1&track=<id>` salta menús, pone al jugador en piloto autom
 ## 8. Clasificación de riesgo (orquestador)
 
 Todo es riesgo **Bajo/Medio** (es un juego: lo peor es que se vea mal o no se pueda terminar una carrera). Medio: core (carrera no termina), kart (física rota), ai (CPU atascadas) → verificación por autotest + lente adversarial DeepSeek. Bajo: track, items, audio, ui, fx → revisión del orquestador con capturas.
+
+## 9. Tanda 3 — Gráficos de nueva generación (enmienda)
+
+Objetivo: dejar de parecer "geometría simple". Personajes orgánicos y expresivos, escenarios realistas con PBR, postprocesado cinematográfico. Sigue siendo 100 % procedural (sin archivos), pero se permiten todos los addons de `three/addons/...` (EffectComposer, GTAOPass, UnrealBloomPass, SMAAPass, OutputPass, Sky, RoomEnvironment, BufferGeometryUtils, SimplexNoise, etc.).
+
+### 9.1 Nuevo bloque Render — `src/render/index.js`
+```js
+export function createRenderPipeline(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, opts?: { quality?: 'low'|'high'|'ultra' }): RenderPipeline
+RenderPipeline {
+  render(dt: number): void,             // sustituye a renderer.render(scene, camera)
+  setSize(width: number, height: number): void,
+  setQuality(q: 'low'|'high'|'ultra'): void,
+  quality: string,
+  setSun(light: THREE.DirectionalLight|null): void,  // luz de sombras del circuito
+  setFocus(position: THREE.Vector3): void,            // centro del encuadre de sombras (el jugador), llamado cada frame
+  setBoost(amount: number /*0..1*/): void,            // intensidad de efectos de velocidad (aberración/vignette/blur radial)
+  dispose(): void,
+}
+```
+- `low`: sin postprocesado (render directo + FXAA opcional). `high`: GTAO/SAO + bloom + grading + SMAA. `ultra`: high + resolución 1.0× con sombras 4096 + extras.
+- Resolución dinámica: si el tiempo medio de frame supera 20 ms durante 2 s, baja `pixelRatio` en pasos (mín. 0.6); si baja de 12 ms, sube (máx. min(devicePixelRatio, 1.5)).
+- Sombras: la shadow camera del sol sigue a `setFocus` con un frustum ajustado (±45 m) para máxima nitidez; texel-snapping para evitar parpadeo.
+
+### 9.2 Circuitos (enmienda §4.1)
+- `Track.sunLight: THREE.DirectionalLight` (la luz de sombras; `castShadow = true`).
+- `createTrack` fija `scene.environment` con un mapa de entorno PMREM generado de su propio cielo (para reflejos PBR) y lo libera en `dispose()`.
+- Todos los materiales pasan a `MeshStandardMaterial`/`MeshPhysicalMaterial` con texturas procedurales (CanvasTexture o DataTexture) de color + normal + roughness donde aporte.
+
+### 9.3 Kart y piloto (enmienda §4.2)
+- Modelos orgánicos: geometrías suavizadas (normales suaves, Lathe/Capsule/esferas deformadas con ruido, perfiles curvos), materiales PBR (pintura de kart con clearcoat, goma, metal cromado, pelaje/piel con sheen), sin aristas facetadas visibles en personajes.
+- Expresividad: cada piloto tiene cara con ojos (párpados que parpadean, pupilas que miran hacia la dirección de giro), cejas y boca deformables. Expresiones obligatorias según estado: `neutral`, `determinado` (derrape/turbo), `eufórico` (mini-turbo nivel 3, adelantar, celebrate), `sorprendido` (golpe recibido), `mareado` (spin), `enfadado` (tras ser golpeado, 1.5 s), `contento` (en el aire / caja de objeto). API añadida: `kart.setExpression(name: string, duration?: number): void` y `kart.expression: string` (lectura).
