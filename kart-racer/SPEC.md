@@ -19,7 +19,6 @@ Gráficos 3D procedurales (Three.js, geometría generada por código) y audio pr
 - Multijugador online o pantalla dividida.
 - Modos batalla / contrarreloj con fantasmas / campeonato de varias copas.
 - Assets descargados de internet (modelos, texturas, audio).
-- Móvil/táctil (PC: teclado y mando).
 - Guardado de progreso.
 
 ## Stack
@@ -57,6 +56,11 @@ proyecto autocontenido en `kart-racer/` dentro del repo, con su propio `package.
 - **C12** Rendimiento: carrera a ≥ 50 fps en Chromium headless con GPU por software a 1280×720 *o*, si el entorno no permite medirlo, < 300 draw calls por frame (`renderer.info.render.calls`).
 - **C13** Ningún nombre, personaje, logotipo o melodía de franquicias existentes aparece en el código o en pantalla.
 - **C14** Mando (Gamepad API) funciona además del teclado.
+- **C15** Cada uno de los 11 personajes tiene una ventaja única (CONTRATO §10.2), visible en la selección, y medible en simulación (p. ej. Mishi ignora el 1er golpe de cada vuelta; Luna recibe turbo en la salida).
+- **C16** 11 personajes seleccionables, incluidos 3 inspirados en arquetipos clásicos (mecánico bigotudo, luchador con aura, marsupial travieso) con diseño original que respeta las prohibiciones del CONTRATO §10.1.
+- **C17** Gráficos "next-gen" (CONTRATO §9): personajes orgánicos con expresiones faciales cambiantes, escenarios PBR con cielo atmosférico y reflejos, postprocesado (AO, bloom, grading) con niveles de calidad.
+- **C18** Controles táctiles en pantalla funcionales en móvil (girar, acelerar/frenar, derrapar, objeto, pausa).
+- **C19** Existe un APK de Android instalable (`apk/rally-relampago-debug.apk`) generado por `scripts/build-apk.sh`, en horizontal y pantalla completa.
 
 ## Acciones que requieren permiso humano
 
@@ -68,3 +72,4 @@ proyecto autocontenido en `kart-racer/` dentro del repo, con su propio `package.
 | Fecha | Cambio |
 |---|---|
 | 2026-10-18 | v1 creada |
+| 2026-10-18 | v2: gráficos next-gen (C17), ventajas por personaje (C15), 3 pilotos nuevos (C16), táctil (C18) y APK Android (C19); móvil deja de estar fuera de alcance |

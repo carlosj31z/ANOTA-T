@@ -1,0 +1,9 @@
+{
+  "appId": "com.rallyrelampago.game",
+  "appName": "Rally Relámpago",
+  "webDir": "dist",
+  "backgroundColor": "#000000",
+  "android": {
+    "allowMixedContent": false
+  }
+}

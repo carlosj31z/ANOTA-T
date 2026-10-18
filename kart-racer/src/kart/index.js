@@ -1,4 +1,4 @@
-// Bloque 2 — Kart y piloto. API exacta del contrato §4.2.
+// Bloque 2 — Kart y piloto. API exacta del contrato §4.2 (+ §9.3 expresiones).
 // Física arcade paso fijo (dt=1/60 lo da el core) + animación del modelo.
 //
 // Rumbos: adelante = (sin h, 0, cos h). Girar a la izquierda = aumentar h.
@@ -12,6 +12,7 @@ import {
   GRAVITY,
 } from '../shared/constants.js';
 import { getKartModel } from './model.js';
+import { getPilotMaterial, getFaceMaterial } from './materials.js';
 
 // --- Constantes de jugabilidad ---
 const SPIN_TIME = 1.2; // duración del giro por golpe
@@ -32,12 +33,50 @@ const WALL_COOLDOWN = 0.4;
 const PAD_COOLDOWN = 1.2;
 const LAND_TIME = 0.22;
 
+// --- Expresiones ---
+const EXPRESSIONS = {
+  neutral: { smile: 0.55, big: 0, o: 0, frown: 0, grit: 0, browAngry: 0, browRaise: 0.05, squint: 0, headShake: 0 },
+  contento: { smile: 1, big: 0.2, o: 0, frown: 0, grit: 0, browAngry: 0, browRaise: 0.45, squint: 0, headShake: 0 },
+  determinado: { smile: 0.2, big: 0, o: 0, frown: 0, grit: 0.15, browAngry: 0.7, browRaise: 0, squint: 0.4, headShake: 0 },
+  eufórico: { smile: 0.1, big: 1, o: 0, frown: 0, grit: 0, browAngry: 0, browRaise: 0.9, squint: 0, headShake: 0 },
+  sorprendido: { smile: 0, big: 0, o: 1, frown: 0, grit: 0, browAngry: 0, browRaise: 1, squint: 0, headShake: 0 },
+  enfadado: { smile: 0, big: 0, o: 0, frown: 1, grit: 0, browAngry: 1, browRaise: 0, squint: 0.5, headShake: 0 },
+  mareado: { smile: 0, big: 0, o: 0.5, frown: 0, grit: 0, browAngry: 0.25, browRaise: 0, squint: 0.2, headShake: 1 },
+};
+const EXPR_KEYS = ['smile', 'big', 'o', 'frown', 'grit', 'browAngry', 'browRaise', 'squint', 'headShake'];
+
 const _fwd = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _probe = new THREE.Vector3();
 
+// Reutilizados por el instancing de ruedas.
+const _wheelPos = new THREE.Vector3();
+const _wheelScale = new THREE.Vector3(1, 1, 1);
+const _wheelQ = new THREE.Quaternion();
+const _wheelQ2 = new THREE.Quaternion();
+const _wheelM = new THREE.Matrix4();
+const AXIS_X = new THREE.Vector3(1, 0, 0);
+const AXIS_Y = new THREE.Vector3(0, 1, 0);
+
+const WHEELS = [
+  { x: 0.52, y: 0.28, z: 0.6, steer: true },
+  { x: -0.52, y: 0.28, z: 0.6, steer: true },
+  { x: 0.56, y: 0.28, z: -0.62, steer: false },
+  { x: -0.56, y: 0.28, z: -0.62, steer: false },
+];
+
+const NECK_Y = 0.44;
+const NECK_Z = -0.02;
+
 function clamp(v, a, b) {
   return v < a ? a : v > b ? b : v;
+}
+
+function setMorph(mesh, map, name, value) {
+  if (!mesh || !mesh.morphTargetInfluences || !map) return;
+  const i = map[name];
+  if (i === undefined) return;
+  mesh.morphTargetInfluences[i] = value;
 }
 
 export function createKart(scene, character, opts = {}) {
@@ -54,6 +93,9 @@ export function createKart(scene, character, opts = {}) {
 
   // --- Modelo (geometría cacheada a nivel de módulo por personaje) ---
   const model = getKartModel(character);
+  const mats = model.materials;
+  const pilotMat = getPilotMaterial(character);
+  const faceMat = getFaceMaterial(character);
 
   const object3d = new THREE.Group();
   object3d.name = `kart:${character.id}`;
@@ -61,92 +103,107 @@ export function createKart(scene, character, opts = {}) {
   const tilt = new THREE.Group();
   object3d.add(tilt);
 
-  // Materiales por kart (el emisivo se anima de forma independiente).
-  const kartMat = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const faceMat = new THREE.MeshBasicMaterial({ vertexColors: true });
-  const exhaustMat = new THREE.MeshBasicMaterial({ color: 0x3a1c10 });
-  const emblemMat = new THREE.MeshBasicMaterial({
-    map: model.emblemTex,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
-
-  // Chasis fusionado
-  const chassis = new THREE.Mesh(model.chassisGeo, kartMat);
+  // --- Carrocería ---
+  const chassis = new THREE.Mesh(model.chassisGeo, mats.paint);
   chassis.castShadow = true;
   tilt.add(chassis);
 
-  // Emblema / dorsal sobre el alerón trasero
-  const emblem = new THREE.Mesh(model.emblemGeo, emblemMat);
-  emblem.rotation.x = -Math.PI / 2;
-  emblem.position.set(0, 0.845, -0.78);
-  tilt.add(emblem);
+  const chrome = new THREE.Mesh(model.chromeGeo, mats.chrome);
+  chrome.castShadow = true;
+  tilt.add(chrome);
 
-  // Toberas de escape (brillo de turbo)
-  const exhaustMesh = new THREE.Mesh(model.exhaustGeo, exhaustMat);
-  tilt.add(exhaustMesh);
+  const lights = new THREE.Mesh(model.lightsGeo, mats.lights);
+  tilt.add(lights);
 
-  // --- Ruedas: pivot (dirección) → spinner (rodadura) → malla ---
-  const wheelPivots = [];
-  const wheelSpinners = [];
-  const wheelRadii = [];
-  function addWheel(x, y, z, geo, radius, steerable) {
-    const pivot = new THREE.Group();
-    pivot.position.set(x, y, z);
-    const spinner = new THREE.Group();
-    const mesh = new THREE.Mesh(geo, kartMat);
-    mesh.castShadow = true;
-    spinner.add(mesh);
-    pivot.add(spinner);
-    tilt.add(pivot);
-    wheelPivots.push({ pivot, steerable });
-    wheelSpinners.push(spinner);
-    wheelRadii.push(radius);
-  }
-  addWheel(0.52, 0.26, 0.6, model.frontWheelGeo, 0.26, true);
-  addWheel(-0.52, 0.26, 0.6, model.frontWheelGeo, 0.26, true);
-  addWheel(0.56, 0.3, -0.6, model.rearWheelGeo, 0.3, false);
-  addWheel(-0.56, 0.3, -0.6, model.rearWheelGeo, 0.3, false);
+  const decal = new THREE.Mesh(model.decalGeo, mats.decal);
+  decal.rotation.x = -Math.PI / 2 + 0.5;
+  decal.position.set(0, 0.56, 0.86);
+  tilt.add(decal);
+
+  // --- Ruedas instanciadas (4 en 2 draw calls) ---
+  const tireIM = new THREE.InstancedMesh(model.tireGeo, mats.tire, 4);
+  tireIM.castShadow = true;
+  tireIM.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const rimIM = new THREE.InstancedMesh(model.rimGeo, mats.rim, 4);
+  rimIM.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  tilt.add(tireIM);
+  tilt.add(rimIM);
+
+  // --- Volante (gira con la dirección) ---
+  const steeringPivot = new THREE.Group();
+  steeringPivot.position.set(0, 0.8, 0.52);
+  steeringPivot.rotation.x = 1.05;
+  const steering = new THREE.Mesh(model.steeringGeo, mats.steering);
+  steering.castShadow = true;
+  steeringPivot.add(steering);
+  tilt.add(steeringPivot);
 
   // --- Piloto ---
   const anchors = model.pilot.anchors;
   const pilot = new THREE.Group();
-  pilot.position.set(0, 0.52, -0.2);
+  pilot.position.set(0, 0.5, -0.18);
   tilt.add(pilot);
 
-  function addPart(geo, parent, material) {
-    if (!geo) return null;
-    const mesh = new THREE.Mesh(geo, material || kartMat);
-    mesh.castShadow = true;
-    parent.add(mesh);
-    return mesh;
-  }
-
-  addPart(model.pilot.bodyGeo, pilot);
-
-  const headGroup = new THREE.Group();
-  headGroup.position.set(anchors.head.x, anchors.head.y, anchors.head.z);
-  pilot.add(headGroup);
-  addPart(model.pilot.headGeo, headGroup);
-  addPart(model.pilot.faceGeo, headGroup, faceMat);
-
-  const headSpringGroup = new THREE.Group();
-  headSpringGroup.position.set(anchors.headSpring.x, anchors.headSpring.y, anchors.headSpring.z);
-  headGroup.add(headSpringGroup);
-  addPart(model.pilot.headSpringGeo, headSpringGroup);
-
-  const bodySpringGroup = new THREE.Group();
-  bodySpringGroup.position.set(anchors.bodySpring.x, anchors.bodySpring.y, anchors.bodySpring.z);
-  pilot.add(bodySpringGroup);
-  addPart(model.pilot.bodySpringGeo, bodySpringGroup);
+  const bodyMesh = new THREE.Mesh(model.pilot.bodyGeo, pilotMat);
+  bodyMesh.castShadow = true;
+  pilot.add(bodyMesh);
 
   const armsGroup = new THREE.Group();
   armsGroup.position.set(anchors.arms.x, anchors.arms.y, anchors.arms.z);
   pilot.add(armsGroup);
-  addPart(model.pilot.armsGeo, armsGroup);
+  const armsMesh = new THREE.Mesh(model.pilot.armsGeo, pilotMat);
+  armsMesh.castShadow = true;
+  // La geometría ya está en coords locales del piloto: el grupo solo aporta el
+  // pivote de rotación, así que compensamos con el desplazamiento inverso.
+  armsMesh.position.set(-anchors.arms.x, -anchors.arms.y, -anchors.arms.z);
+  armsGroup.add(armsMesh);
+  pilot.userData.armsGroup = armsGroup;
+
+  const headGroup = new THREE.Group();
+  headGroup.position.set(0, NECK_Y, NECK_Z);
+  pilot.add(headGroup);
+
+  const headMesh = new THREE.Mesh(model.pilot.headGeo, pilotMat);
+  headMesh.castShadow = true;
+  headMesh.position.set(0, -NECK_Y, -NECK_Z);
+  headGroup.add(headMesh);
+
+  let faceMesh = null;
+  let screenMesh = null;
+  let screen = null;
+  if (model.pilot.faceGeo) {
+    faceMesh = new THREE.Mesh(model.pilot.faceGeo, faceMat);
+    faceMesh.position.set(0, -NECK_Y, -NECK_Z);
+    headGroup.add(faceMesh);
+  }
+  if (model.pilot.screen) {
+    screen = model.pilot.screen;
+    const geo = new THREE.PlaneGeometry(0.25, 0.23);
+    const mat = new THREE.MeshBasicMaterial({ map: screen.texture, toneMapped: false });
+    screenMesh = new THREE.Mesh(geo, mat);
+    screenMesh.position.set(0, anchors.head.y + 0.02 - NECK_Y, 0.2 - NECK_Z);
+    headGroup.add(screenMesh);
+  }
+
+  // --- Sombra de contacto (blob shadow) ---
+  const shadow = new THREE.Mesh(model.shadowGeo, mats.shadow);
+  shadow.renderOrder = 1;
+  object3d.add(shadow);
 
   scene.add(object3d);
+
+  const faceMap = model.pilot.faceMorphs;
+  const headMap = model.pilot.headMorphs;
+  const bodyMap = model.pilot.bodyMorphs;
+
+  // Influencias iniciales a cero.
+  function zeroMorphs(mesh) {
+    if (!mesh || !mesh.morphTargetInfluences) return;
+    for (let i = 0; i < mesh.morphTargetInfluences.length; i++) mesh.morphTargetInfluences[i] = 0;
+  }
+  zeroMorphs(faceMesh);
+  zeroMorphs(headMesh);
+  zeroMorphs(bodyMesh);
 
   // --- Estado físico (contrato §4.2) ---
   const state = {
@@ -193,8 +250,26 @@ export function createKart(scene, character, opts = {}) {
   let bumpVel = 0;
   let dizzy = 0;
   let shieldHue = 0;
+  let groundY = 0;
+  const wheelSpin = [0, 0, 0, 0];
   const headSpring = { pos: 0, vel: 0 };
-  const bodySpring = { pos: 0, vel: 0 };
+  const tailSpring = { pos: 0, vel: 0 };
+  const earSpring = { pos: 0, vel: 0 };
+
+  // Expresiones
+  let expression = 'neutral';
+  const cur = {};
+  for (const k of EXPR_KEYS) cur[k] = EXPRESSIONS.neutral[k];
+  let manualExpr = null;
+  let manualTimer = 0;
+  let surpriseTimer = 0;
+  let angryTimer = 0;
+  let euphoriaTimer = 0;
+  let blinkTimer = 1 + Math.random() * 3;
+  let blinkPhase = -1;
+  let lookX = 0;
+  let lookY = 0;
+  let screenAccum = 0;
 
   function emit(name, payload) {
     if (events) events.emit(name, payload);
@@ -234,7 +309,15 @@ export function createKart(scene, character, opts = {}) {
     const w = character.stats.weight;
     speed *= clamp(0.55 - w * 0.05, 0.25, 0.55);
     lat *= 0.3;
+    surpriseTimer = 0.45;
+    angryTimer = 1.5;
     emit(EVENTS.HIT, { kart, by });
+  }
+
+  function setExpression(name, duration) {
+    if (!EXPRESSIONS[name]) return;
+    manualExpr = name;
+    manualTimer = duration === undefined ? 2.5 : duration;
   }
 
   function setTransform(p, h) {
@@ -272,7 +355,13 @@ export function createKart(scene, character, opts = {}) {
     bumpVel = 0;
     dizzy = 0;
     headSpring.pos = headSpring.vel = 0;
-    bodySpring.pos = bodySpring.vel = 0;
+    tailSpring.pos = tailSpring.vel = 0;
+    earSpring.pos = earSpring.vel = 0;
+    manualExpr = null;
+    manualTimer = 0;
+    surpriseTimer = 0;
+    angryTimer = 0;
+    euphoriaTimer = 0;
     object3d.rotation.y = h;
     tilt.rotation.set(0, 0, 0);
     tilt.position.y = 0;
@@ -295,25 +384,125 @@ export function createKart(scene, character, opts = {}) {
     position.addScaledVector(n, moved);
   }
 
-  function updateSpring(spring, group, force, dt, kSpring, damping) {
-    if (!group) return;
+  function updateSpring(spring, force, dt, kSpring, damping) {
     spring.vel += (-kSpring * spring.pos - damping * spring.vel + force) * dt;
     spring.pos += spring.vel * dt;
     spring.pos = clamp(spring.pos, -0.95, 0.95);
-    group.rotation.z = spring.pos;
+  }
+
+  // --- Anima ruedas instanciadas ---
+  function updateWheels(dt) {
+    for (let i = 0; i < WHEELS.length; i++) {
+      const w = WHEELS[i];
+      wheelSpin[i] += (speed / 0.28) * dt;
+      _wheelQ.setFromAxisAngle(AXIS_Y, w.steer ? steerVis * 0.42 : 0);
+      _wheelQ2.setFromAxisAngle(AXIS_X, wheelSpin[i]);
+      _wheelQ.multiply(_wheelQ2);
+      _wheelPos.set(w.x, w.y, w.z);
+      _wheelM.compose(_wheelPos, _wheelQ, _wheelScale);
+      tireIM.setMatrixAt(i, _wheelM);
+      rimIM.setMatrixAt(i, _wheelM);
+    }
+    tireIM.instanceMatrix.needsUpdate = true;
+    rimIM.instanceMatrix.needsUpdate = true;
+  }
+
+  // --- Expresión objetivo (automática desde el estado) ---
+  function autoExpression() {
+    if (state.spinTime > 0) return 'mareado';
+    if (surpriseTimer > 0) return 'sorprendido';
+    if (angryTimer > 0) return 'enfadado';
+    if (celebrating) return 'eufórico';
+    if (euphoriaTimer > 0) return 'eufórico';
+    if (state.boostTime > 0) return 'determinado';
+    if (state.drifting && state.driftLevel >= 2) return 'determinado';
+    if (state.airborne) return 'contento';
+    return 'neutral';
+  }
+
+  function updateExpressions(dt) {
+    if (manualTimer > 0) {
+      manualTimer -= dt;
+      if (manualTimer <= 0) manualExpr = null;
+    }
+    if (surpriseTimer > 0) surpriseTimer -= dt;
+    if (angryTimer > 0) angryTimer -= dt;
+    if (euphoriaTimer > 0) euphoriaTimer -= dt;
+
+    const target = manualExpr || autoExpression();
+    expression = target;
+    const pose = EXPRESSIONS[target] || EXPRESSIONS.neutral;
+
+    const k = 1 - Math.exp(-dt / 0.15);
+    for (const key of EXPR_KEYS) {
+      cur[key] += (pose[key] - cur[key]) * k;
+    }
+
+    // Parpadeo aleatorio.
+    blinkTimer -= dt;
+    if (blinkTimer <= 0) {
+      blinkPhase = 0;
+      blinkTimer = 2 + Math.random() * 3;
+    }
+    let blinkValue = 0;
+    if (blinkPhase >= 0) {
+      blinkPhase += dt;
+      const p = blinkPhase / 0.13;
+      if (p >= 1) {
+        blinkPhase = -1;
+      } else {
+        blinkValue = p < 0.5 ? p * 2 : (1 - p) * 2;
+      }
+    }
+
+    // Mirada: hacia donde gira el kart.
+    const lookTargetX = clamp(steerVis * 0.9 + (state.drifting ? state.driftDir * 0.4 : 0), -1, 1);
+    const lookTargetY = state.airborne ? 0.4 : controls.brake > 0 ? -0.4 : 0;
+    lookX += (lookTargetX - lookX) * k;
+    lookY += (lookTargetY - lookY) * k;
+
+    if (faceMesh) {
+      const mouth = cur;
+      setMorph(faceMesh, faceMap, 'mouthSmile', mouth.smile);
+      setMorph(faceMesh, faceMap, 'mouthBig', mouth.big);
+      setMorph(faceMesh, faceMap, 'mouthO', mouth.o);
+      setMorph(faceMesh, faceMap, 'mouthFrown', mouth.frown);
+      setMorph(faceMesh, faceMap, 'mouthGrit', mouth.grit);
+      setMorph(faceMesh, faceMap, 'browAngry', mouth.browAngry);
+      setMorph(faceMesh, faceMap, 'browRaise', mouth.browRaise);
+      const lid = Math.max(blinkValue, mouth.squint * 0.4);
+      setMorph(faceMesh, faceMap, 'blink', lid);
+      if (target === 'mareado') {
+        const wob = Math.sin(animTime * 14);
+        setMorph(faceMesh, faceMap, 'lookL', Math.max(0, -wob));
+        setMorph(faceMesh, faceMap, 'lookR', Math.max(0, wob));
+      } else {
+        setMorph(faceMesh, faceMap, 'lookL', Math.max(0, -lookX));
+        setMorph(faceMesh, faceMap, 'lookR', Math.max(0, lookX));
+      }
+      setMorph(faceMesh, faceMap, 'lookU', Math.max(0, lookY));
+      setMorph(faceMesh, faceMap, 'lookD', Math.max(0, -lookY));
+    }
+
+    // Pantalla del robot: redibuja cuando cambia algo relevante (limitado).
+    if (screen && screenMesh) {
+      screenAccum += dt;
+      if (screenAccum > 0.07) {
+        screenAccum = 0;
+        screen.draw({ expression: target, blink: blinkValue, lookX, lookY, t: animTime });
+      }
+    }
   }
 
   function animate(dt, spinning, steerIn, speedNorm) {
     const k = 1 - Math.exp(-12 * dt);
 
-    // Rodadura de las ruedas + dirección de las delanteras.
-    for (let i = 0; i < wheelSpinners.length; i++) {
-      wheelSpinners[i].rotation.x += (speed / wheelRadii[i]) * dt;
-    }
+    // Dirección visual de las ruedas delanteras.
     steerVis += (steerIn - steerVis) * k;
-    for (const w of wheelPivots) {
-      if (w.steerable) w.pivot.rotation.y = steerVis * 0.42;
-    }
+    updateWheels(dt);
+
+    // Volante que gira con la dirección.
+    steeringPivot.rotation.z = steerVis * 1.4;
 
     // Balanceo de la carrocería.
     let rollTarget = steerVis * 0.13;
@@ -344,41 +533,50 @@ export function createKart(scene, character, opts = {}) {
     tilt.position.y = bob + (celebrating ? Math.abs(Math.sin(animTime * 5)) * 0.12 : 0);
     tilt.scale.set(1 + squash * 0.16, 1 - squash * 0.3, 1 + squash * 0.16);
 
-    // Piloto: se inclina y se marea.
-    pilot.rotation.z = -rollVis * 0.55;
-    pilot.rotation.x = Math.sin(animTime * 13) * 0.02 * speedNorm;
-    headGroup.rotation.z = -rollVis * 0.5;
+    // Cabeza con inercia (muelle).
+    updateSpring(headSpring, -rollVis * 14 - slideVis * 10, dt, 46, 8);
+    headGroup.rotation.z = -rollVis * 0.5 + headSpring.pos * 0.5;
     headGroup.rotation.x = pitchVis * 0.5;
     if (spinning) dizzy += dt * 11;
     else dizzy += (0 - dizzy) * (1 - Math.exp(-6 * dt));
-    headGroup.rotation.y = dizzy;
+    const shake = cur.headShake * Math.sin(animTime * 12) * 0.28;
+    headGroup.rotation.y = dizzy + shake;
 
-    // Brazos: al volante, o arriba al celebrar.
-    const armsTarget = celebrating ? -2.3 : 0;
-    armsGroup.rotation.x += (armsTarget - armsGroup.rotation.x) * (1 - Math.exp(-10 * dt));
+    // Brazos: al volante; giran con la dirección y suben al celebrar.
+    const armLift = celebrating ? -2.3 : cur.big > 0.5 ? -0.5 : 0;
+    armsGroup.rotation.x += (armLift - armsGroup.rotation.x) * (1 - Math.exp(-10 * dt));
+    armsGroup.rotation.y = steerVis * 0.32;
 
-    // Orejas / antenas / cola con física de muelle.
-    updateSpring(headSpring, headSpringGroup, -rollVis * 14 + bumpPos * 24, dt, 34, 7);
-    updateSpring(bodySpring, bodySpringGroup, -rollVis * 10 + bumpPos * 20, dt, 26, 6);
+    // Respiración leve del torso.
+    const breath = 1 + Math.sin(animTime * 2.6) * 0.015 + speedNorm * 0.01;
+    bodyMesh.scale.set(1, breath, 1);
 
-    // Escudo: brillo arcoíris cíclico.
+    // Orejas / cola con física de muelle → morphs.
+    updateSpring(earSpring, -rollVis * 16 + bumpPos * 26 - speedNorm * 12, dt, 40, 8);
+    updateSpring(tailSpring, -rollVis * 12 + bumpPos * 22, dt, 30, 7);
+    if (headMesh) {
+      const bend = clamp(speedNorm * 0.7 + Math.max(0, -earSpring.pos) * 0.8, 0, 1);
+      setMorph(headMesh, headMap, 'earBend', bend);
+      setMorph(headMesh, headMap, 'earWag', clamp(earSpring.pos, -1, 1));
+    }
+    setMorph(bodyMesh, bodyMap, 'tailSwing', clamp(tailSpring.pos, -1, 1));
+    setMorph(bodyMesh, bodyMap, 'tailUp', clamp(-earSpring.pos * 0.6, -1, 1));
+
+    // Escudo: brillo arcoíris cíclico sobre la pintura.
     if (state.shieldTime > 0) {
       shieldHue = (shieldHue + dt * 1.6) % 1;
-      kartMat.emissive.setHSL(shieldHue, 0.9, 0.5);
-      kartMat.emissiveIntensity = 0.55;
-    } else if (kartMat.emissiveIntensity !== 0) {
-      kartMat.emissiveIntensity = 0;
+      mats.paint.emissive.setHSL(shieldHue, 0.9, 0.5);
+      mats.paint.emissiveIntensity = 0.5;
+    } else if (mats.paint.emissiveIntensity !== 0) {
+      mats.paint.emissiveIntensity = 0;
     }
 
-    // Turbo: escapes con brillo intenso.
-    if (state.boostTime > 0) {
-      const f = 0.55 + 0.45 * Math.abs(Math.sin(animTime * 45));
-      exhaustMat.color.setRGB(1, 0.35 + 0.4 * f, 0.08);
-      exhaustMesh.scale.setScalar(1 + f * 0.22);
-    } else {
-      exhaustMat.color.setHex(0x3a1c10);
-      exhaustMesh.scale.setScalar(1);
-    }
+    // Sombra de contacto: se queda en el suelo y se difumina al saltar.
+    const off = Math.max(0, position.y - groundY);
+    shadow.position.y = -off + 0.03;
+    const ss = 1 + off * 0.35;
+    shadow.scale.set(ss, ss, ss);
+    mats.shadow.opacity = clamp(0.9 - off * 0.5, 0.2, 0.9);
 
     // Orientación base (giro por golpe y celebración añaden rotación cosmética).
     object3d.rotation.y =
@@ -391,6 +589,7 @@ export function createKart(scene, character, opts = {}) {
     const proj = track.projectToTrack(position, kart.trackT);
     kart.trackT = proj.t;
     state.surface = proj.surface;
+    groundY = proj.groundY;
     animTime += dt;
 
     // --- temporizadores ---
@@ -501,6 +700,7 @@ export function createKart(scene, character, opts = {}) {
       if (lvl > state.driftLevel) {
         state.driftLevel = lvl;
         emit(EVENTS.DRIFT_LEVEL, { kart, level: lvl });
+        if (lvl === 3) euphoriaTimer = 1.2;
       }
       if (!controls.drift) endDrift(true);
       else if (Math.abs(speed) < 0.25 * maxSpeed) endDrift(false);
@@ -595,6 +795,7 @@ export function createKart(scene, character, opts = {}) {
     velocity.set(fwd.x * speed + right.x * lat, vy, fwd.z * speed + right.z * lat);
 
     animate(dt, spinning, steerIn, speedNorm);
+    updateExpressions(dt);
   }
 
   function celebrate() {
@@ -602,6 +803,7 @@ export function createKart(scene, character, opts = {}) {
     endDrift(false);
     state.spinTime = 0;
     spinAngle = 0;
+    euphoriaTimer = 3;
   }
 
   const kart = {
@@ -628,14 +830,19 @@ export function createKart(scene, character, opts = {}) {
     set speed(v) {
       speed = v;
     },
+    get expression() {
+      return expression;
+    },
     update,
     applyBoost,
     hit,
     setTransform,
     getForward,
     celebrate,
+    setExpression,
   };
 
   setTransform(position, 0);
+  updateWheels(0);
   return kart;
 }

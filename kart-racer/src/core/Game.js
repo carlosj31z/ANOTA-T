@@ -19,10 +19,17 @@ const FIXED_DT = 1 / 60;
 const MAX_FRAME_DT = 1 / 20;
 const INTRO_SECONDS = 3;
 const PLAYER_FINISH_GRACE = 8; // s tras la meta del jugador antes de resultados
+const BUMP_COOLDOWN = 0.5; // s entre eventos BUMP de la misma pareja
+const BUMP_TRANSFER = 0.2; // fracción del impulso de choque que se intercambia
+const BUMP_MAX_DV = 3; // m/s máximo de cambio de velocidad por choque
 
 function colorCss(hex) {
   if (typeof hex === 'number') return `#${hex.toString(16).padStart(6, '0')}`;
   return hex || '#ffffff';
+}
+
+function clamp(v, a, b) {
+  return v < a ? a : v > b ? b : v;
 }
 
 export function createGame(deps) {
@@ -38,6 +45,8 @@ export function createGame(deps) {
     drivers: new Map(),
     raceInfo: new Map(),
     places: new Map(),
+    bumpTimers: new Map(),
+    bumpCount: 0,
     items: null,
     fx: null,
     player: null,
@@ -127,6 +136,8 @@ export function createGame(deps) {
     game.drivers.clear();
     game.raceInfo.clear();
     game.places = new Map();
+    game.bumpTimers.clear();
+    game.bumpCount = 0;
     game.player = null;
     game.playerFinishTime = null;
     game.finishedCount = 0;
@@ -167,6 +178,7 @@ export function createGame(deps) {
         lap: 1,
         prevT: proj.t,
         passedHalf: false,
+        crossedFinish: false,
         finished: false,
         finishTime: null,
         finishOrder: 0,
@@ -269,25 +281,67 @@ export function createGame(deps) {
 
   function updateCollisions() {
     const karts = game.karts;
+    const bumpTimers = game.bumpTimers;
+    for (const [key, t] of bumpTimers) {
+      const nt = t - FIXED_DT;
+      if (nt <= 0) bumpTimers.delete(key);
+      else bumpTimers.set(key, nt);
+    }
     for (let i = 0; i < karts.length; i++) {
       const a = karts[i];
+      const massA = a.mass || 1;
+      const invA = 1 / massA;
       for (let j = i + 1; j < karts.length; j++) {
         const b = karts[j];
         const dx = b.position.x - a.position.x;
         const dz = b.position.z - a.position.z;
         const dist = Math.hypot(dx, dz);
         const min = a.radius + b.radius;
-        if (dist > 1e-4 && dist < min) {
-          const nx = dx / dist;
-          const nz = dz / dist;
-          const push = (min - dist) * 0.5;
-          a.position.x -= nx * push;
-          a.position.z -= nz * push;
-          b.position.x += nx * push;
-          b.position.z += nz * push;
-          a.speed *= 0.97;
-          b.speed *= 0.97;
+        if (dist <= 1e-4 || dist >= min) continue;
+
+        const massB = b.mass || 1;
+        const invB = 1 / massB;
+        const invSum = invA + invB;
+        const nx = dx / dist;
+        const nz = dz / dist;
+        const overlap = min - dist;
+
+        // Reparto del empuje inversamente proporcional a la masa: el ligero cede.
+        const pushA = overlap * (invA / invSum);
+        const pushB = overlap * (invB / invSum);
+        a.position.x -= nx * pushA;
+        a.position.z -= nz * pushA;
+        b.position.x += nx * pushB;
+        b.position.z += nz * pushB;
+
+        // Intercambio de velocidad a lo largo de la normal, repartido por masa:
+        // el pesado apenas se inmuta, el ligero sale despedido.
+        const rvx = b.velocity.x - a.velocity.x;
+        const rvz = b.velocity.z - a.velocity.z;
+        const vn = rvx * nx + rvz * nz;
+        if (vn < 0) {
+          const e = 0.25; // restitución
+          const jimp = (-(1 + e) * vn) / invSum;
+          const fax = Math.sin(a.heading);
+          const faz = Math.cos(a.heading);
+          const fbx = Math.sin(b.heading);
+          const fbz = Math.cos(b.heading);
+          let dvA = (-jimp * invA) * (nx * fax + nz * faz) * BUMP_TRANSFER;
+          let dvB = (jimp * invB) * (nx * fbx + nz * fbz) * BUMP_TRANSFER;
+          dvA = clamp(dvA, -BUMP_MAX_DV, BUMP_MAX_DV);
+          dvB = clamp(dvB, -BUMP_MAX_DV, BUMP_MAX_DV);
+          a.speed += dvA;
+          b.speed += dvB;
+        }
+
+        a.speed *= 0.98;
+        b.speed *= 0.98;
+
+        const key = i * 100 + j;
+        if (!bumpTimers.has(key)) {
+          bumpTimers.set(key, BUMP_COOLDOWN);
           events.emit(EVENTS.BUMP, { a, b });
+          if (game.autotest) game.bumpCount += 1;
         }
       }
     }
@@ -301,22 +355,29 @@ export function createGame(deps) {
       if (t > 0.4 && t < 0.6) info.passedHalf = true;
 
       // Cruce de meta hacia adelante (0.9 -> 0.1) con anti-trampa.
-      if (info.prevT > 0.9 && t < 0.1 && info.passedHalf) {
-        info.passedHalf = false;
-        if (info.lap >= TOTAL_LAPS) {
-          finishKart(kart, info);
-        } else {
-          info.lap += 1;
-          const isFinal = info.lap === TOTAL_LAPS;
-          events.emit(EVENTS.LAP, { kart, lap: info.lap, isFinal });
-          if (isFinal && kart.isPlayer) {
-            audio.setMusicFast(true);
-            ui.showMessage('¡ÚLTIMA VUELTA!');
+      if (info.prevT > 0.9 && t < 0.1) {
+        if (!info.crossedFinish) {
+          // La parrilla arranca detrás de la meta: el primer cruce no es vuelta.
+          info.crossedFinish = true;
+        } else if (info.passedHalf) {
+          info.passedHalf = false;
+          if (info.lap >= TOTAL_LAPS) {
+            finishKart(kart, info);
+          } else {
+            info.lap += 1;
+            const isFinal = info.lap === TOTAL_LAPS;
+            events.emit(EVENTS.LAP, { kart, lap: info.lap, isFinal });
+            if (isFinal && kart.isPlayer) {
+              audio.setMusicFast(true);
+              ui.showMessage('¡ÚLTIMA VUELTA!');
+            }
           }
         }
       }
       info.prevT = t;
-      info.progress = (info.lap - 1) + t;
+      // Antes del primer cruce el kart sigue detrás de la meta: t ~0.97..0.99
+      // valdría 0.98 y falsearía las posiciones de salida, así que se desplaza.
+      info.progress = !info.crossedFinish && t > 0.5 ? t - 1 : (info.lap - 1) + t;
     }
   }
 
@@ -547,6 +608,10 @@ export function createGame(deps) {
       step(FIXED_DT);
       if (game.finishedAll) break;
     }
+    // En headless la cámara de persecución se queda atrás (pocos frames lentos):
+    // se recoloca sin suavizado y se refresca el HUD una vez.
+    if (game.player) game.chase.snap(game.player);
+    updateHUD();
     return {
       state: game.mode,
       raceTime: game.raceTime,
@@ -584,6 +649,9 @@ export function createGame(deps) {
         },
         get finishedAll() {
           return game.finishedAll;
+        },
+        get bumps() {
+          return game.bumpCount;
         },
         drawCalls: 0,
         simulate,

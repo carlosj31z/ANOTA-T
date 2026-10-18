@@ -1,217 +1,210 @@
-// BLOQUE 1 — Circuito "Prado Turbo": hierba, colinas, árboles, flores, molino, nubes, globos.
+// BLOQUE 1 — Circuito "Prado Turbo": colinas verdes, hierba con viento, flores,
+// árboles orgánicos, molino, nubes, globos, mariposas y banderas.
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { scatterPositions } from './builder.js';
+import { fbm2, smoothstep } from './procgen.js';
+import { applyWind, setWindTime } from './materials.js';
+import {
+  buildBroadleaf,
+  buildGrassTuft,
+  scatter,
+  scatterTrackSide,
+  instantiate,
+  barkMaterial,
+} from './vegetation.js';
+import { buildBalloons, buildClouds, buildButterflies, buildTracksideFlags } from './props.js';
+import { buildDistantHills } from './terrain.js';
 
-function ico(r, d = 0) {
-  return new THREE.IcosahedronGeometry(r, d);
-}
+export const MEADOW_AMBIENT = {
+  seed: 1337,
+  background: 0x9fd3ff,
+  fogColor: 0xc2dcf6,
+  fogDensity: 0.00042,
+  sky: {
+    elevation: 42,
+    azimuth: 96,
+    turbidity: 1.4,
+    rayleigh: 1.0,
+    mieCoefficient: 0.004,
+    mieDirectionalG: 0.8,
+    sun: { color: 0xfff5e2, intensity: 3.2 },
+    hemi: { sky: 0xa8d4ff, ground: 0x4a7a3a, intensity: 0.55 },
+    sunVisual: '#fffbe6',
+    sunVisualSize: 20,
+    shadowRadius: 150,
+  },
+  terrain: {
+    detailNormal: 'grass',
+    detailRepeat: 110,
+    amp: 15,
+    fineAmp: 3,
+    flattenIn: 26,
+    flattenOut: 150,
+    roughness: 0.95,
+    normalScale: 0.6,
+    color: (x, z, h, rel, c) => {
+      const n = fbm2(x * 0.025 + 3, z * 0.025 + 7);
+      const dry = smoothstep(0.52, 0.78, n);
+      const dirt = smoothstep(0.72, 0.95, fbm2(x * 0.011 + 40, z * 0.011 + 9)) * 0.7;
+      let r = 0.2 + 0.16 * (1 - dry) + 0.34 * dry;
+      let g = 0.46 + 0.1 * (1 - dry) + 0.14 * dry;
+      let b = 0.15 + 0.06 * (1 - dry) + 0.07 * dry;
+      r = r * (1 - dirt) + 0.38 * dirt;
+      g = g * (1 - dirt) + 0.3 * dirt;
+      b = b * (1 - dirt) + 0.2 * dirt;
+      c.setRGB(r, g, b);
+    },
+  },
+};
 
 export function buildMeadow(ctx) {
-  const { rnd, samples, half, band, isOnTrack } = ctx;
+  const { rnd, samples, half, heightAt, centroid } = ctx;
   const group = new THREE.Group();
+  group.name = 'meadow-props';
   const updaters = [];
-  const dummy = new THREE.Object3D();
-  const col = new THREE.Color();
+  const windMats = [];
 
-  // -------------------- Árboles --------------------
-  const trunkGeo = new THREE.CylinderGeometry(0.32, 0.55, 3.4, 6);
-  trunkGeo.translate(0, 1.7, 0);
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2b });
-
-  const foliageGeo = mergeGeometries([
-    ico(2.4, 0).translate(0, 4.6, 0),
-    ico(1.8, 0).translate(0.5, 5.9, 0.3),
-    ico(1.4, 0).translate(-0.6, 6.5, -0.3),
-  ]);
-  const foliageMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-
-  const treePos = scatterPositions(rnd, 200, {
-    minR: 34,
-    maxR: 330,
-    isOnTrack: (x, z) => isOnTrack(x, z, 7),
-  });
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, treePos.length);
-  const foliage = new THREE.InstancedMesh(foliageGeo, foliageMat, treePos.length);
-  trunks.castShadow = true;
-  foliage.castShadow = true;
-  const greens = [0x3f9b46, 0x2f8a3f, 0x4fb055, 0x57a83f];
-  for (let i = 0; i < treePos.length; i++) {
-    const p = treePos[i];
-    const s = 0.8 + rnd() * 0.8;
-    dummy.position.set(p.x, 0, p.z);
-    dummy.rotation.set(0, p.a, 0);
-    dummy.scale.set(s, s * (0.9 + rnd() * 0.3), s);
-    dummy.updateMatrix();
-    trunks.setMatrixAt(i, dummy.matrix);
-    foliage.setMatrixAt(i, dummy.matrix);
-    foliage.setColorAt(i, col.setHex(greens[Math.floor(rnd() * greens.length)]));
+  // -------------------- Árboles de copa --------------------
+  const treeSpecs = [
+    buildBroadleaf(11, { height: 8.5 }),
+    buildBroadleaf(29, { height: 6.5 }),
+  ];
+  const trunkMat = barkMaterial();
+  const greens = [0x3f9b46, 0x2f8a3f, 0x4fb055, 0x57a83f, 0x6bbf4f];
+  const treePos = scatter(ctx, rnd, 170, { minR: 34, maxR: 330, clearance: 8, flatness: 9 });
+  // reparto por variante
+  for (let v = 0; v < treeSpecs.length; v++) {
+    const spec = treeSpecs[v];
+    const list = treePos.filter((_, i) => i % treeSpecs.length === v);
+    if (list.length === 0) continue;
+    const trunks = instantiate(spec.trunk, trunkMat, list, { scaleMin: 0.8, scaleMax: 1.5, yScaleVar: 0.2 });
+    const foliageMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.85,
+      metalness: 0.0,
+      flatShading: false,
+    });
+    applyWind(foliageMat, { strength: 0.16, height: spec.height, speed: 0.9, scale: 0.12, bend: 1.3 });
+    windMats.push(foliageMat);
+    const foliage = instantiate(spec.foliage, foliageMat, list, {
+      scaleMin: 0.8,
+      scaleMax: 1.5,
+      yScaleVar: 0.2,
+      colors: () => greens[Math.floor(rnd() * greens.length)],
+    });
+    group.add(trunks, foliage);
   }
-  group.add(trunks, foliage);
+
+  // -------------------- Hierba tupida junto a la pista --------------------
+  const tuftColors = [0x7fbf4a, 0x9fd25a, 0x6fae3f, 0xb8d86a, 0x5f9a3a];
+  for (let v = 0; v < 2; v++) {
+    const tuft = buildGrassTuft(200 + v * 7, {
+      height: 0.6 + v * 0.25,
+      rootColor: 0x2f5a1e,
+      tipColor: 0xa9d95f,
+      blades: 6,
+    });
+    const list = scatterTrackSide(ctx, rnd, 1500, { latMin: half + 1.4, latMax: half + 20 });
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
+    applyWind(mat, { strength: 0.12, height: tuft.height, speed: 1.7, scale: 0.6, bend: 1.2 });
+    windMats.push(mat);
+    const mesh = instantiate(tuft.geo, mat, list, {
+      castShadow: false,
+      scaleMin: 0.7,
+      scaleMax: 1.6,
+      colors: () => tuftColors[Math.floor(rnd() * tuftColors.length)],
+    });
+    group.add(mesh);
+  }
 
   // -------------------- Flores --------------------
-  const flowerGeo = ico(0.28, 0);
-  flowerGeo.translate(0, 0.3, 0);
-  const flowerMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  const flowers = scatterPositions(rnd, 320, {
-    minR: 18,
-    maxR: 240,
-    isOnTrack: (x, z) => isOnTrack(x, z, 1.5),
-  });
-  const flowerMesh = new THREE.InstancedMesh(flowerGeo, flowerMat, flowers.length);
+  const flowerGeo = mergeGeometries([
+    new THREE.CylinderGeometry(0.02, 0.03, 0.35, 4).translate(0, 0.17, 0),
+    new THREE.SphereGeometry(0.14, 6, 5).translate(0, 0.38, 0),
+  ]);
+  const flowerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7, metalness: 0.0 });
   const flowerColors = [0xff5a5a, 0xffd23f, 0xffffff, 0xff8ad8, 0xa06bff, 0xff9a3f];
-  for (let i = 0; i < flowers.length; i++) {
-    const p = flowers[i];
-    dummy.position.set(p.x, 0, p.z);
-    dummy.rotation.set(0, p.a, 0);
-    dummy.scale.setScalar(0.7 + rnd() * 0.8);
-    dummy.updateMatrix();
-    flowerMesh.setMatrixAt(i, dummy.matrix);
-    flowerMesh.setColorAt(i, col.setHex(flowerColors[Math.floor(rnd() * flowerColors.length)]));
-  }
-  group.add(flowerMesh);
+  const flowers = scatterTrackSide(ctx, rnd, 900, { latMin: half + 1.8, latMax: half + 26 });
+  group.add(
+    instantiate(flowerGeo, flowerMat, flowers, {
+      castShadow: false,
+      scaleMin: 0.8,
+      scaleMax: 1.5,
+      colors: () => flowerColors[Math.floor(rnd() * flowerColors.length)],
+    })
+  );
+
+  // -------------------- Mariposas --------------------
+  const bfSpots = scatterTrackSide(ctx, rnd, 70, { latMin: half + 3, latMax: half + 30 });
+  const bf = buildButterflies(rnd, bfSpots);
+  group.add(bf.group);
+  updaters.push(bf.update);
 
   // -------------------- Molino de viento --------------------
   const mill = new THREE.Group();
-  const towerGeo = new THREE.CylinderGeometry(1.1, 2.2, 14, 8);
-  towerGeo.translate(0, 7, 0);
-  const tower = new THREE.Mesh(towerGeo, new THREE.MeshLambertMaterial({ color: 0xf0ece0 }));
+  const towerMat = new THREE.MeshStandardMaterial({ color: 0xf0ece0, roughness: 0.8, metalness: 0.0 });
+  const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 2.3, 14, 12), towerMat);
+  tower.position.y = 7;
   tower.castShadow = true;
+  tower.receiveShadow = true;
   mill.add(tower);
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.1, 2.4, 8), new THREE.MeshLambertMaterial({ color: 0xc0392b }));
-  roof.position.y = 15.2;
+  const roof = new THREE.Mesh(
+    new THREE.ConeGeometry(2.2, 2.6, 12),
+    new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6, metalness: 0.1 })
+  );
+  roof.position.y = 15.3;
   roof.castShadow = true;
   mill.add(roof);
   const blades = new THREE.Group();
-  const bladeGeo = new THREE.BoxGeometry(0.7, 8.5, 0.25);
-  const bladeMat = new THREE.MeshLambertMaterial({ color: 0xf7f3e8 });
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xf7f3e8, roughness: 0.7, metalness: 0.0 });
   for (let i = 0; i < 4; i++) {
-    const b = new THREE.Mesh(bladeGeo, bladeMat);
-    b.position.set(0, 4.6, 0);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.7, 9.0, 0.22), bladeMat);
+    b.position.set(0, 4.8, 0);
     b.castShadow = true;
     const holder = new THREE.Group();
     holder.add(b);
     holder.rotation.z = (i / 4) * Math.PI * 2;
     blades.add(holder);
   }
-  blades.position.set(0, 12.5, 2.3);
+  blades.position.set(0, 12.6, 2.4);
   mill.add(blades);
   const millAngle = rnd() * Math.PI * 2;
-  mill.position.set(Math.cos(millAngle) * 175, 0, Math.sin(millAngle) * 175);
+  mill.position.set(centroid.x + Math.cos(millAngle) * 175, heightAt(centroid.x + Math.cos(millAngle) * 175, centroid.z + Math.sin(millAngle) * 175), centroid.z + Math.sin(millAngle) * 175);
   mill.rotation.y = millAngle + Math.PI;
   group.add(mill);
   updaters.push((dt) => {
     blades.rotation.z += dt * 1.1;
   });
 
-  // -------------------- Nubes --------------------
-  const puffGeo = mergeGeometries([
-    ico(3.2, 1).translate(0, 0, 0),
-    ico(2.4, 1).translate(3.4, 0.4, 0.4),
-    ico(2.6, 1).translate(-3.2, 0.2, -0.3),
-    ico(1.9, 1).translate(0.6, 1.2, 0.2),
-  ]);
-  const puffMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  const clouds = new THREE.InstancedMesh(puffGeo, puffMat, 16);
-  const cloudData = [];
-  for (let i = 0; i < 16; i++) {
-    const a = rnd() * Math.PI * 2;
-    const r = 120 + rnd() * 700;
-    cloudData.push({
-      x: Math.cos(a) * r,
-      y: 70 + rnd() * 45,
-      z: Math.sin(a) * r,
-      s: 1.6 + rnd() * 2.2,
-      v: 1.5 + rnd() * 2,
-    });
-  }
-  const updateClouds = (dt) => {
-    for (let i = 0; i < cloudData.length; i++) {
-      const c = cloudData[i];
-      c.x += c.v * dt;
-      if (c.x > 900) c.x = -900;
-      dummy.position.set(c.x, c.y, c.z);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(c.s);
-      dummy.updateMatrix();
-      clouds.setMatrixAt(i, dummy.matrix);
-    }
-    clouds.instanceMatrix.needsUpdate = true;
-  };
-  updateClouds(0);
-  group.add(clouds);
-  updaters.push(updateClouds);
+  // -------------------- Nubes y globos --------------------
+  const clouds = buildClouds(rnd, { count: 18 });
+  group.add(clouds.group);
+  updaters.push(clouds.update);
+  const balloons = buildBalloons(rnd, { count: 6 });
+  group.add(balloons.group);
+  updaters.push(balloons.update);
 
-  // -------------------- Globos aerostáticos --------------------
-  const balloonGeo = mergeGeometries([
-    new THREE.SphereGeometry(2.6, 12, 10).scale(1, 1.3, 1),
-    new THREE.BoxGeometry(1.4, 1.1, 1.4).translate(0, -4.4, 0),
-  ]);
-  const balloonMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  const balloons = new THREE.InstancedMesh(balloonGeo, balloonMat, 7);
-  const balloonColors = [0xff6b6b, 0xffd23f, 0x4fd1ff, 0x6be36b, 0xff8ad8];
-  const balloonData = [];
-  for (let i = 0; i < 7; i++) {
-    const a = rnd() * Math.PI * 2;
-    const r = 90 + rnd() * 260;
-    balloonData.push({
-      x: Math.cos(a) * r,
-      y: 26 + rnd() * 26,
-      z: Math.sin(a) * r,
-      phase: rnd() * Math.PI * 2,
-      v: 0.6 + rnd() * 0.8,
-    });
-    balloons.setColorAt(i, col.setHex(balloonColors[i % balloonColors.length]));
-  }
-  if (balloons.instanceColor) balloons.instanceColor.needsUpdate = true;
-  const updateBalloons = (dt, time) => {
-    for (let i = 0; i < balloonData.length; i++) {
-      const b = balloonData[i];
-      b.x += b.v * dt;
-      if (b.x > 400) b.x = -400;
-      dummy.position.set(b.x, b.y + Math.sin(time * 0.6 + b.phase) * 1.6, b.z);
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(1);
-      dummy.updateMatrix();
-      balloons.setMatrixAt(i, dummy.matrix);
-    }
-    balloons.instanceMatrix.needsUpdate = true;
-  };
-  updateBalloons(0, 0);
-  group.add(balloons);
-  updaters.push(updateBalloons);
+  // -------------------- Colinas lejanas --------------------
+  group.add(buildDistantHills(ctx, { count: 26 }).mesh);
 
-  const ambient = {
-    background: 0x9fd3ff,
-    skyStops: [
-      [0, '#2f6fd0'],
-      [0.42, '#79c0ff'],
-      [0.72, '#cbeaff'],
-      [1, '#f2fbff'],
-    ],
-    fog: 0xcfe8ff,
-    fogNear: 260,
-    fogFar: 1350,
-    terrainBase: '#4c9a46',
-    terrainLight: '#6fbf58',
-    terrainDark: '#357a34',
-    sunColor: 0xfff4d6,
-    sunIntensity: 2.4,
-    hemiSky: 0xbfe6ff,
-    hemiGround: 0x3f6b2a,
-    hemiIntensity: 0.9,
-    sunDir: [0.55, 0.72, 0.42],
-    sunVisual: '#fff3b0',
-    terrainColor: (x, z, h) => {
-      const t = Math.min(1, Math.max(0, h / 22));
-      return col.setRGB(0.24 + t * 0.22, 0.52 + t * 0.18, 0.2 + t * 0.1);
-    },
-  };
+  // -------------------- Banderas --------------------
+  for (const side of [1, -1]) {
+    const flags = buildTracksideFlags(samples, {
+      half,
+      sideSign: side,
+      spacing: 16,
+      sampleSpacing: ctx.sampleSpacing,
+      colors: [0xff3b3b, 0xffd23f, 0x2f80ff, 0x37d67a, 0xffffff],
+    });
+    group.add(flags.group);
+    windMats.push(flags.material);
+  }
 
   function update(dt, time) {
     for (const u of updaters) u(dt, time);
+    for (const m of windMats) setWindTime(m, time);
   }
 
-  return { group, update, ambient };
+  return { group, update };
 }

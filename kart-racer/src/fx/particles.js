@@ -1,54 +1,62 @@
 // BLOQUE 7 — Sistema de partículas por pools (CONTRATO §4.7).
-// Pools de THREE.Points con ShaderMaterial, arrays tipados y reciclaje por
-// pila libre. Sin asignar memoria por frame: reutiliza buffers y un objeto de
-// opciones compartido. Tamaño por partícula, color, alfa y atenuación por
-// distancia (gl_PointSize). Forma circular suave o cuadrado (confeti/estrellas).
+// Pools de THREE.Points con ShaderMaterial que muestrean un atlas procedural
+// (src/fx/textures.js). Arrays tipados y reciclaje por pila libre. Sin asignar
+// memoria por frame: reutiliza buffers y un objeto de opciones compartido.
+// Cada partícula tiene tamaño, color HDR (>1 para el bloom), atlas-tile,
+// rotación y "motion-stretch" alineado con su velocidad (orienta la estela).
+// Sin geometría por frame: la textura es un único draw call por pool.
 
 import * as THREE from 'three';
+import { getAtlasTexture, GRID } from './textures.js';
 
 const VERT = /* glsl */ `
 attribute vec3 aColor;
 attribute float aSize;
 attribute float aAlpha;
 attribute float aRot;
-attribute float aShape;
+attribute float aTile;
+attribute vec3 aVel;
+uniform float uGrid;
 varying vec3 vColor;
 varying float vAlpha;
 varying float vRot;
-varying float vShape;
+varying float vTile;
 void main() {
   vColor = aColor;
   vAlpha = aAlpha;
-  vRot = aRot;
-  vShape = aShape;
+  vTile = aTile;
+  // Dirección de la velocidad en espacio de vista para orientar la estela.
+  vec3 vv = (modelViewMatrix * vec4(aVel, 0.0)).xyz;
+  float ang = atan(vv.y, vv.x);
+  vRot = aRot + ang - 1.5707963;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   float dist = max(0.1, -mv.z);
-  gl_PointSize = clamp(aSize * (420.0 / dist), 1.0, 260.0);
+  float stretch = 1.0 + min(length(aVel), 30.0) * 0.035;
+  gl_PointSize = clamp(aSize * stretch * (420.0 / dist), 1.0, 300.0);
   gl_Position = projectionMatrix * mv;
 }
 `;
 
 const FRAG = /* glsl */ `
+uniform sampler2D uMap;
+uniform float uGrid;
 varying vec3 vColor;
 varying float vAlpha;
 varying float vRot;
-varying float vShape;
+varying float vTile;
 void main() {
-  vec2 p = gl_PointCoord - 0.5;
+  vec2 pc = gl_PointCoord - 0.5;
   float c = cos(vRot);
   float s = sin(vRot);
-  p = mat2(c, -s, s, c) * p;
-  float a;
-  if (vShape < 0.5) {
-    float d = length(p);
-    a = smoothstep(0.5, 0.04, d);
-  } else {
-    vec2 ap = abs(p);
-    a = (max(ap.x, ap.y) < 0.5) ? 1.0 : 0.0;
-  }
-  a *= vAlpha;
-  if (a < 0.01) discard;
-  gl_FragColor = vec4(vColor, a);
+  pc = mat2(c, -s, s, c) * pc;
+  pc += 0.5;
+  float col = mod(vTile, uGrid);
+  float row = floor(vTile / uGrid);
+  vec2 uv = (vec2(col, row) + pc) / uGrid;
+  vec4 tex = texture2D(uMap, uv);
+  float a = tex.a * vAlpha;
+  if (a < 0.004) discard;
+  gl_FragColor = vec4(vColor * tex.rgb, a);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }
@@ -58,21 +66,23 @@ void main() {
 export const EMIT = {
   gravity: 0,
   drag: 0,
-  shape: 0,
   alpha: 1,
   rot: 0,
   rotVel: 0,
   sizeTo: -1,
+  tile: 0,
+  stretch: 1,
 };
 
 export function resetEmit() {
   EMIT.gravity = 0;
   EMIT.drag = 0;
-  EMIT.shape = 0;
   EMIT.alpha = 1;
   EMIT.rot = 0;
   EMIT.rotVel = 0;
   EMIT.sizeTo = -1;
+  EMIT.tile = 0;
+  EMIT.stretch = 1;
 }
 
 export class ParticlePool {
@@ -83,7 +93,8 @@ export class ParticlePool {
     this.sizes = new Float32Array(capacity);
     this.alphas = new Float32Array(capacity);
     this.rots = new Float32Array(capacity);
-    this.shapes = new Float32Array(capacity);
+    this.tiles = new Float32Array(capacity);
+    this.vels = new Float32Array(capacity * 3);
 
     this.vx = new Float32Array(capacity);
     this.vy = new Float32Array(capacity);
@@ -102,6 +113,7 @@ export class ParticlePool {
     for (let i = 0; i < capacity; i++) this._free[i] = i;
     this._freeTop = capacity;
     this.aliveCount = 0;
+    this._dirtyColor = false;
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3).setUsage(THREE.DynamicDrawUsage));
@@ -109,11 +121,17 @@ export class ParticlePool {
     geo.setAttribute('aSize', new THREE.BufferAttribute(this.sizes, 1).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('aAlpha', new THREE.BufferAttribute(this.alphas, 1).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('aRot', new THREE.BufferAttribute(this.rots, 1).setUsage(THREE.DynamicDrawUsage));
-    geo.setAttribute('aShape', new THREE.BufferAttribute(this.shapes, 1).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('aTile', new THREE.BufferAttribute(this.tiles, 1).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('aVel', new THREE.BufferAttribute(this.vels, 3).setUsage(THREE.DynamicDrawUsage));
     geo.setDrawRange(0, capacity);
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
     this.geometry = geo;
 
     this.material = new THREE.ShaderMaterial({
+      uniforms: {
+        uMap: { value: getAtlasTexture() },
+        uGrid: { value: GRID },
+      },
       vertexShader: VERT,
       fragmentShader: FRAG,
       transparent: true,
@@ -142,6 +160,10 @@ export class ParticlePool {
     this.colors[p] = r;
     this.colors[p + 1] = g;
     this.colors[p + 2] = b;
+    const st = opt.stretch;
+    this.vels[p] = vx * st;
+    this.vels[p + 1] = vy * st;
+    this.vels[p + 2] = vz * st;
     const s1 = opt.sizeTo >= 0 ? opt.sizeTo : size;
     this.size0[i] = size;
     this.size1[i] = s1;
@@ -154,9 +176,8 @@ export class ParticlePool {
     this.alphas[i] = 0;
     this.rots[i] = opt.rot;
     this.rotVel[i] = opt.rotVel;
-    this.shapes[i] = opt.shape;
-    this.geometry.attributes.aColor.needsUpdate = true;
-    this.geometry.attributes.aShape.needsUpdate = true;
+    this.tiles[i] = opt.tile;
+    this._dirtyColor = true;
     return i;
   }
 
@@ -212,6 +233,12 @@ export class ParticlePool {
     attrs.aSize.needsUpdate = true;
     attrs.aAlpha.needsUpdate = true;
     attrs.aRot.needsUpdate = true;
+    if (this._dirtyColor) {
+      attrs.aColor.needsUpdate = true;
+      attrs.aTile.needsUpdate = true;
+      attrs.aVel.needsUpdate = true;
+      this._dirtyColor = false;
+    }
   }
 
   dispose(scene) {

@@ -1,6 +1,9 @@
 // Capturas de la interfaz (bloque 6). Contrato §1.
-// Levanta el dev server en el puerto 4186 (exclusivo de este bloque), abre el
-// juego SIN autotest y navega menús con Enter, guardando shots/ui-*.png.
+// Levanta el dev server en el puerto 4186 (exclusivo de este bloque) y captura
+// menús y HUD en dos contextos:
+//   - escritorio 1280x720
+//   - móvil horizontal 844x390 (isMobile + hasTouch, para ver la adaptación táctil)
+// Guarda shots/ui-*.png.
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +36,46 @@ function waitForServer(url, timeoutMs = 40000) {
   });
 }
 
+async function captureMenus(page, tag) {
+  await page.goto(BASE, { waitUntil: 'load' });
+  await page.waitForTimeout(1400);
+  await page.screenshot({ path: path.join(SHOTS, `ui-${tag}title.png`) });
+
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(700);
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(SHOTS, `ui-${tag}chars.png`) });
+
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(700);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: path.join(SHOTS, `ui-${tag}tracks.png`) });
+}
+
+async function captureHud(page, tag) {
+  await page.goto(`${BASE}/?autotest=1&track=meadow`, { waitUntil: 'load' });
+  await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 });
+  // El render headless va a ~4 fps: avanzamos la simulación a paso fijo.
+  await page.evaluate(() => window.__game.simulate(9));
+  await page.waitForTimeout(2200);
+  await page.evaluate(() => window.__game.simulate(4));
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: path.join(SHOTS, `ui-${tag}hud.png`) });
+
+  // Final de carrera -> resultados (menú también navegable al tacto).
+  try {
+    await page.evaluate(() => window.__game.simulate(420));
+    await page.waitForSelector('.results-screen', { timeout: 30000 });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(SHOTS, `ui-${tag}results.png`) });
+  } catch {
+    /* si la carrera no termina en el entorno headless, no es bloqueante */
+  }
+}
+
 async function main() {
   fs.mkdirSync(SHOTS, { recursive: true });
 
@@ -60,52 +103,36 @@ async function main() {
     browser = await chromium.launch({
       args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
     });
-    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text());
+
+    const wire = (page) => {
+      page.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+      page.on('pageerror', (err) => {
+        consoleErrors.push('pageerror: ' + (err && err.message ? err.message : String(err)));
+      });
+    };
+
+    // --- Escritorio 1280x720 ---
+    const desktop = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const dpage = await desktop.newPage();
+    wire(dpage);
+    await captureMenus(dpage, '');
+    await captureHud(dpage, '');
+    await desktop.close();
+
+    // --- Móvil horizontal 844x390 (táctil) ---
+    const mobile = await browser.newContext({
+      viewport: { width: 844, height: 390 },
+      isMobile: true,
+      hasTouch: true,
+      deviceScaleFactor: 1,
     });
-    page.on('pageerror', (err) => {
-      consoleErrors.push('pageerror: ' + (err && err.message ? err.message : String(err)));
-    });
-
-    await page.goto(BASE, { waitUntil: 'load' });
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: path.join(SHOTS, 'ui-title.png') });
-
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(600);
-    await page.keyboard.press('ArrowRight');
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: path.join(SHOTS, 'ui-chars.png') });
-
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(600);
-    await page.keyboard.press('ArrowRight');
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: path.join(SHOTS, 'ui-tracks.png') });
-
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(5000);
-    await page.screenshot({ path: path.join(SHOTS, 'ui-hud.png') });
-
-    // La carrera arranca tras intro (3 s) + cuenta atrás (3 s), pero bajo
-    // SwiftShader el reloj de juego avanza más lento que el real: esperamos a
-    // que el cronómetro esté corriendo (HUD vivo: minimapa, velocidad).
-    await page.waitForFunction(
-      () => {
-        const clock = document.querySelector('.hud-clock');
-        return clock && clock.textContent !== '0:00.00' && !document.querySelector('.countdown');
-      },
-      null,
-      { timeout: 90000 }
-    );
-    await page.waitForTimeout(2500);
-    await page.screenshot({ path: path.join(SHOTS, 'ui-hud-live.png') });
-
-    // Extra: pausa (no forma parte del encargo mínimo).
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: path.join(SHOTS, 'ui-pause.png') });
+    const mpage = await mobile.newPage();
+    wire(mpage);
+    await captureMenus(mpage, 'mobile-');
+    await captureHud(mpage, 'mobile-');
+    await mobile.close();
   } finally {
     if (browser) await browser.close();
     cleanup();

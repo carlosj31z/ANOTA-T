@@ -1,17 +1,21 @@
-// BLOQUE 1 — CIRCUITOS. Contrato §4.1.
-// Generador común de circuitos + API `createTrack(scene, trackId)`.
+// BLOQUE 1 — CIRCUITOS. Contrato §4.1 + §9.2.
+// Generador común de circuitos + API `createTrack(scene, trackId, opts?)`.
+// Gráficos next-gen: cielo atmosférico, PBR, terreno procedural, vegetación
+// orgánica, agua con shader y detalles de ambiente. 100 % procedural.
 
 import * as THREE from 'three';
 import { ROAD_WIDTH } from '../shared/constants.js';
 import { TRACKS } from '../shared/tracks.js';
 import {
   mulberry32,
-  checkerTex,
-  curbTex,
+  asphaltMaps,
+  curbMaps,
   grainTex,
   boostTex,
   arrowTex,
-  skyTex,
+  checkerTex,
+  wearAlphaTex,
+  terrainNormal,
 } from './textures.js';
 import {
   MeshBuilder,
@@ -22,9 +26,11 @@ import {
   disposeObject,
 } from './builder.js';
 import { buildStartArch, buildGrandstands } from './common.js';
-import { buildMeadow } from './meadow.js';
-import { buildDesert } from './desert.js';
-import { buildSnow } from './snow.js';
+import { buildSky } from './sky.js';
+import { buildTerrain } from './terrain.js';
+import { MEADOW_AMBIENT, buildMeadow } from './meadow.js';
+import { DESERT_AMBIENT, buildDesert } from './desert.js';
+import { SNOW_AMBIENT, buildSnow } from './snow.js';
 
 const SAMPLE_COUNT = 700;
 const BAND = 8; // franja offroad a cada lado (m)
@@ -40,25 +46,16 @@ const circDist = (a, b) => {
 };
 
 // ----------------------------------------------------------------
-// Definición de los tres circuitos (puntos de control + adornos).
+// Definición de los tres circuitos (puntos de control + tema visual).
 // Punto = [x, z, y] (y = elevación suave). Longitud resultante 900–1400 m.
 // ----------------------------------------------------------------
 const TRACK_CONFIG = {
   meadow: {
     seed: 1337,
     controlPoints: [
-      [150, -20, 0],
-      [120, 80, 1.4],
-      [60, 140, 2.6],
-      [-5, 130, 1.6],
-      [-30, 80, 0.2],
-      [-70, 95, -0.6],
-      [-95, 50, 0],
-      [-150, 20, -1.6],
-      [-155, -70, -2.2],
-      [-80, -130, -1.0],
-      [20, -140, 0],
-      [95, -105, 1.4],
+      [150, -20, 0], [120, 80, 1.4], [60, 140, 2.6], [-5, 130, 1.6],
+      [-30, 80, 0.2], [-70, 95, -0.6], [-95, 50, 0], [-150, 20, -1.6],
+      [-155, -70, -2.2], [-80, -130, -1.0], [20, -140, 0], [95, -105, 1.4],
       [135, -55, 0.4],
     ],
     ramps: [{ f0: 0.3, f1: 0.319, h: 1.9 }],
@@ -72,34 +69,19 @@ const TRACK_CONFIG = {
     road: { base: '#5b6067', light: '#787e86', dark: '#3f434a' },
     offroad: { base: '#4c9a46', light: '#63b957', dark: '#357a34' },
     palette: {
-      post: 0xdedede,
-      accent: 0xffd23f,
-      bannerBg: '#c8362b',
-      stand: 0x8a8f98,
-      curbA: '#e23b2f',
-      curbB: '#f2f2f2',
-      wallA: '#e8e8e8',
-      wallB: '#2f80ff',
-      padA: '#39d0ff',
-      padB: '#ffffff',
+      post: 0xdedede, accent: 0xffd23f, bannerBg: '#c8362b', stand: 0x8a8f98,
+      curbA: '#e23b2f', curbB: '#f2f2f2', wallA: '#e8e8e8', wallB: '#2f80ff',
+      padA: '#39d0ff', padB: '#ffffff',
     },
-    theme: buildMeadow,
+    ambient: MEADOW_AMBIENT,
+    build: buildMeadow,
   },
   desert: {
     seed: 9021,
     controlPoints: [
-      [180, 10, 0],
-      [150, 110, 1.2],
-      [60, 150, 2.2],
-      [-20, 120, 1.2],
-      [-60, 150, 0.2],
-      [-120, 120, -1.0],
-      [-180, 50, -1.6],
-      [-150, -40, -1.0],
-      [-60, -60, 0.2],
-      [-80, -130, 0.6],
-      [10, -160, 0],
-      [120, -130, 1.2],
+      [180, 10, 0], [150, 110, 1.2], [60, 150, 2.2], [-20, 120, 1.2],
+      [-60, 150, 0.2], [-120, 120, -1.0], [-180, 50, -1.6], [-150, -40, -1.0],
+      [-60, -60, 0.2], [-80, -130, 0.6], [10, -160, 0], [120, -130, 1.2],
       [180, -60, 0.6],
     ],
     ramps: [{ f0: 0.36, f1: 0.379, h: 2.0 }],
@@ -110,37 +92,22 @@ const TRACK_CONFIG = {
       { tc: 0.79, th: 0.006, lat: 0, hw: 5 },
     ],
     itemRows: [0.16, 0.48, 0.72],
-    road: { base: '#7a5a3c', light: '#966f4a', dark: '#5a4028' },
+    road: { base: '#6b6157', light: '#837a6c', dark: '#4e463e' },
     offroad: { base: '#d9b26a', light: '#e8c887', dark: '#b98d4d' },
     palette: {
-      post: 0xe0d0a8,
-      accent: 0xff8a2b,
-      bannerBg: '#b4531f',
-      stand: 0xa98b5c,
-      curbA: '#e23b2f',
-      curbB: '#f2f2f2',
-      wallA: '#f0d9a8',
-      wallB: '#c0392b',
-      padA: '#ffb347',
-      padB: '#fff2c0',
+      post: 0xe0d0a8, accent: 0xff8a2b, bannerBg: '#b4531f', stand: 0xa98b5c,
+      curbA: '#e23b2f', curbB: '#f2f2f2', wallA: '#f0d9a8', wallB: '#c0392b',
+      padA: '#ffb347', padB: '#fff2c0',
     },
-    theme: buildDesert,
+    ambient: DESERT_AMBIENT,
+    build: buildDesert,
   },
   snow: {
     seed: 4242,
     controlPoints: [
-      [140, -40, 0],
-      [150, 60, 2.0],
-      [90, 120, 3.0],
-      [20, 100, 2.0],
-      [-10, 140, 1.0],
-      [-90, 140, 0],
-      [-150, 80, -1.2],
-      [-120, 0, -2.0],
-      [-170, -70, -1.0],
-      [-80, -130, 0],
-      [10, -120, 1.0],
-      [40, -70, 2.0],
+      [140, -40, 0], [150, 60, 2.0], [90, 120, 3.0], [20, 100, 2.0],
+      [-10, 140, 1.0], [-90, 140, 0], [-150, 80, -1.2], [-120, 0, -2.0],
+      [-170, -70, -1.0], [-80, -130, 0], [10, -120, 1.0], [40, -70, 2.0],
       [110, -90, 1.0],
     ],
     ramps: [{ f0: 0.24, f1: 0.259, h: 2.0 }],
@@ -151,74 +118,32 @@ const TRACK_CONFIG = {
       { tc: 0.88, th: 0.006, lat: 0, hw: 5 },
     ],
     itemRows: [0.18, 0.5, 0.8],
-    road: { base: '#9fbdd2', light: '#c2dbe9', dark: '#7d9fb6' },
+    road: { base: '#7d8a94', light: '#9aa7b1', dark: '#616d77' },
     offroad: { base: '#f2f7fc', light: '#ffffff', dark: '#d3deea' },
     palette: {
-      post: 0xdfe8f0,
-      accent: 0x6fb7ff,
-      bannerBg: '#1f5f8f',
-      stand: 0x9aa9b8,
-      curbA: '#2f80ff',
-      curbB: '#f2f2f2',
-      wallA: '#f4f8fb',
-      wallB: '#2f80ff',
-      padA: '#39d0ff',
-      padB: '#eafcff',
+      post: 0xdfe8f0, accent: 0x6fb7ff, bannerBg: '#1f5f8f', stand: 0x9aa9b8,
+      curbA: '#2f80ff', curbB: '#f2f2f2', wallA: '#f4f8fb', wallB: '#2f80ff',
+      padA: '#39d0ff', padB: '#eafcff',
     },
-    theme: buildSnow,
+    ambient: SNOW_AMBIENT,
+    build: buildSnow,
   },
 };
 
-// ----------------------------------------------------------------
-// Ruido de valor para el terreno.
-// ----------------------------------------------------------------
-function hash2(x, z) {
-  const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
-  return s - Math.floor(s);
-}
-function vnoise(x, z) {
-  const xi = Math.floor(x);
-  const zi = Math.floor(z);
-  const xf = x - xi;
-  const zf = z - zi;
-  const u = xf * xf * (3 - 2 * xf);
-  const v = zf * zf * (3 - 2 * zf);
-  const a = hash2(xi, zi);
-  const b = hash2(xi + 1, zi);
-  const c = hash2(xi, zi + 1);
-  const d = hash2(xi + 1, zi + 1);
-  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
-}
-function fbm(x, z) {
-  let s = 0;
-  let amp = 1;
-  let f = 1;
-  let norm = 0;
-  for (let o = 0; o < 4; o++) {
-    s += amp * vnoise(x * f, z * f);
-    norm += amp;
-    amp *= 0.5;
-    f *= 2;
-  }
-  return s / norm;
-}
-
-export function createTrack(scene, trackId) {
+export function createTrack(scene, trackId, opts = {}) {
   const def = TRACKS.find((t) => t.id === trackId) || TRACKS[0];
   const cfg = TRACK_CONFIG[def.id] || TRACK_CONFIG.meadow;
+  const ambient = cfg.ambient;
   const rnd = mulberry32(cfg.seed);
 
   const group = new THREE.Group();
   group.name = `track:${def.id}`;
   const updaters = [];
 
-  const prevBackground = scene.background;
-  const prevFog = scene.fog;
-
   const half = ROAD_WIDTH / 2;
   const WALL_LAT = half + BAND;
 
-  // --- Curva central (CatmullRom centripetal cerrada) ---
+  // --- Curva central (CatmullRom centripeta cerrada) ---
   const cpoints = cfg.controlPoints.map((p) => new THREE.Vector3(p[0], p[2] || 0, p[1]));
   const curve = new THREE.CatmullRomCurve3(cpoints, true, 'centripetal');
 
@@ -248,6 +173,11 @@ export function createTrack(scene, trackId) {
     samples.push({ t, pos, left, tangent: tan });
   }
   const N = samples.length;
+  const sampleSpacing = (() => {
+    let l = 0;
+    for (let i = 0; i < N; i++) l += samples[i].pos.distanceTo(samples[(i + 1) % N].pos);
+    return l / N;
+  })();
 
   let length = 0;
   for (let i = 0; i < N; i++) length += samples[i].pos.distanceTo(samples[(i + 1) % N].pos);
@@ -300,95 +230,183 @@ export function createTrack(scene, trackId) {
     return nearestSampleXZ(x, z).d < WALL_LAT + margin;
   }
 
+  // Contexto compartido para el terreno y los temas.
+  const ctx = {
+    samples,
+    half,
+    band: BAND,
+    isOnTrack,
+    nearestSampleXZ,
+    rnd,
+    length,
+    centroid,
+    sampleAt,
+    sampleSpacing,
+    WALL_LAT,
+  };
+
+  // ----------------------------------------------------------------
+  // Terreno procedural (define heightAt para todo lo demás).
+  // ----------------------------------------------------------------
+  const terrain = buildTerrain(ctx, ambient);
+  ctx.heightAt = terrain.heightAt;
+  group.add(terrain.mesh);
+
+  // ----------------------------------------------------------------
+  // Cielo atmosférico, entorno PBR y luces.
+  // ----------------------------------------------------------------
+  const sky = buildSky(scene, ambient, centroid, opts);
+  group.add(sky.group);
+
   // ----------------------------------------------------------------
   // Malla: carretera, bordillos, offroad, muros, marcas.
   // ----------------------------------------------------------------
-  const roadTex = grainTex(cfg.road.base, cfg.road.light, cfg.road.dark, cfg.seed, 3000);
-  roadTex.repeat.set(2, 1);
-  const roadMat = new THREE.MeshLambertMaterial({ map: roadTex, side: THREE.DoubleSide });
+  const asphalt = asphaltMaps(1024, cfg.seed);
+  for (const t of [asphalt.map, asphalt.normalMap, asphalt.roughnessMap]) t.repeat.set(4, 3);
+  const roadMat = new THREE.MeshStandardMaterial({
+    map: asphalt.map,
+    normalMap: asphalt.normalMap,
+    roughnessMap: asphalt.roughnessMap,
+    roughness: 1.0,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+    envMapIntensity: 0.6,
+  });
   const rb = new MeshBuilder();
   addRibbon(rb, samples, { latA: half, latB: -half, vScale: 16, close: true });
   const road = new THREE.Mesh(rb.geometry(), roadMat);
   road.receiveShadow = true;
+  road.name = 'road';
   group.add(road);
 
-  const curbMat = new THREE.MeshLambertMaterial({ map: curbTex(cfg.palette.curbA, cfg.palette.curbB), side: THREE.DoubleSide });
+  const curbs = curbMaps(cfg.palette.curbA, cfg.palette.curbB, cfg.seed + 2);
+  const curbMat = new THREE.MeshStandardMaterial({
+    map: curbs.map,
+    normalMap: curbs.normalMap,
+    normalScale: new THREE.Vector2(1.0, 1.0),
+    roughness: 0.7,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
   const cb = new MeshBuilder();
-  addRibbon(cb, samples, { latA: half, latB: half + CURB, yA: 0.03, yB: 0.07, vScale: 2.4, close: true });
-  addRibbon(cb, samples, { latA: -half, latB: -half - CURB, yA: 0.03, yB: 0.07, vScale: 2.4, close: true });
-  const curbs = new THREE.Mesh(cb.geometry(), curbMat);
-  curbs.receiveShadow = true;
-  group.add(curbs);
+  addRibbon(cb, samples, { latA: half, latB: half + CURB, yA: 0.03, yB: 0.09, vScale: 2.4, close: true });
+  addRibbon(cb, samples, { latA: -half, latB: -half - CURB, yA: 0.03, yB: 0.09, vScale: 2.4, close: true });
+  const curbsMesh = new THREE.Mesh(cb.geometry(), curbMat);
+  curbsMesh.receiveShadow = true;
+  group.add(curbsMesh);
 
   const offTex = grainTex(cfg.offroad.base, cfg.offroad.light, cfg.offroad.dark, cfg.seed + 5, 2600);
-  offTex.repeat.set(3, 3);
-  const offMat = new THREE.MeshLambertMaterial({ map: offTex, side: THREE.DoubleSide });
+  offTex.repeat.set(6, 1);
+  const offNormal = terrainNormal(ambient.terrain.detailNormal, 256, cfg.seed + 12);
+  offNormal.repeat.set(6, 40);
+  const offMat = new THREE.MeshStandardMaterial({
+    map: offTex,
+    normalMap: offNormal,
+    normalScale: new THREE.Vector2(0.6, 0.6),
+    roughness: 0.95,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
   const ob = new MeshBuilder();
-  addRibbon(ob, samples, { latA: half + CURB, latB: half + BAND, yA: 0.02, yB: -0.12, vScale: 22, close: true });
-  addRibbon(ob, samples, { latA: -half - CURB, latB: -half - BAND, yA: 0.02, yB: -0.12, vScale: 22, close: true });
+  addRibbon(ob, samples, { latA: half + CURB, latB: half + BAND, yA: 0.02, yB: -0.16, vScale: 22, close: true });
+  addRibbon(ob, samples, { latA: -half - CURB, latB: -half - BAND, yA: 0.02, yB: -0.16, vScale: 22, close: true });
   const offroad = new THREE.Mesh(ob.geometry(), offMat);
   offroad.receiveShadow = true;
   group.add(offroad);
 
-  const wallMat = new THREE.MeshLambertMaterial({ map: curbTex(cfg.palette.wallA, cfg.palette.wallB), side: THREE.DoubleSide });
+  // Muros con relieve metálico y desgaste.
+  const wallMaps = curbMaps(cfg.palette.wallA, cfg.palette.wallB, cfg.seed + 7);
+  const wallMat = new THREE.MeshStandardMaterial({
+    map: wallMaps.map,
+    normalMap: wallMaps.normalMap,
+    normalScale: new THREE.Vector2(0.8, 0.8),
+    roughness: 0.6,
+    metalness: 0.15,
+    side: THREE.DoubleSide,
+  });
   const wb = new MeshBuilder();
-  addWall(wb, samples, { lat: WALL_LAT, yBottom: -2.2, yTop: 1.5, vScale: 6, close: true });
-  addWall(wb, samples, { lat: -WALL_LAT, yBottom: -2.2, yTop: 1.5, vScale: 6, close: true });
+  addWall(wb, samples, { lat: WALL_LAT, yBottom: -2.4, yTop: 1.6, vScale: 6, close: true });
+  addWall(wb, samples, { lat: -WALL_LAT, yBottom: -2.4, yTop: 1.6, vScale: 6, close: true });
   const walls = new THREE.Mesh(wb.geometry(), wallMat);
   walls.receiveShadow = true;
   group.add(walls);
 
-  const lineMat = new THREE.MeshBasicMaterial({ color: 0xf2f2f2, side: THREE.DoubleSide });
+  // Líneas viales con pintura gastada.
+  const wear = wearAlphaTex(cfg.seed + 4);
+  wear.repeat.set(1, 3);
+  const lineMat = new THREE.MeshStandardMaterial({
+    color: 0xf2f2f2,
+    roughness: 0.65,
+    metalness: 0.0,
+    alphaMap: wear,
+    transparent: true,
+    alphaTest: 0.35,
+    side: THREE.DoubleSide,
+  });
   const lb = new MeshBuilder();
-  addDashes(lb, samples, { lat: 0, halfW: 0.17, dashLen: 3, gapLen: 6, yLift: 0.05 });
+  addDashes(lb, samples, { lat: 0, halfW: 0.18, dashLen: 3, gapLen: 6, yLift: 0.05 });
   group.add(new THREE.Mesh(lb.geometry(), lineMat));
 
-  // Línea de meta a cuadros.
+  // Línea de meta a cuadros (pintura desgastada).
   const startTex = checkerTex(2, '#f4f4f4', '#141414');
   startTex.wrapS = THREE.RepeatWrapping;
   startTex.wrapT = THREE.RepeatWrapping;
   startTex.repeat.set(12, 1);
-  const startMat = new THREE.MeshBasicMaterial({ map: startTex, side: THREE.DoubleSide });
+  const startWear = wearAlphaTex(cfg.seed + 8);
+  startWear.repeat.set(12, 1);
+  const startMat = new THREE.MeshStandardMaterial({
+    map: startTex,
+    alphaMap: startWear,
+    transparent: true,
+    alphaTest: 0.3,
+    roughness: 0.6,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
   const sb = new MeshBuilder();
   addRibbon(sb, samples, { start: 0, count: 3, latA: half, latB: -half, vScale: 4, close: false });
   group.add(new THREE.Mesh(sb.geometry(), startMat));
 
-  // Placas de turbo (chevrones animados).
+  // Placas de turbo (chevrones emisivos animados).
   const padTex = boostTex(cfg.palette.padA, cfg.palette.padB);
   padTex.repeat.set(1, 2);
-  const padMat = new THREE.MeshBasicMaterial({ map: padTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  const padMat = new THREE.MeshStandardMaterial({
+    map: padTex,
+    emissive: 0xffffff,
+    emissiveMap: padTex,
+    emissiveIntensity: 0.8,
+    transparent: true,
+    depthWrite: false,
+    roughness: 0.5,
+    side: THREE.DoubleSide,
+  });
   const padBuilder = new MeshBuilder();
   for (const p of cfg.boostPads) {
     const start = Math.floor(wrap01(p.tc - p.th) * N);
     const count = Math.max(2, Math.ceil(p.th * 2 * N) + 1);
     addRibbon(padBuilder, samples, {
-      start,
-      count,
-      latA: p.lat + p.hw,
-      latB: p.lat - p.hw,
-      yA: 0.06,
-      yB: 0.06,
-      vScale: 2.6,
-      close: false,
+      start, count, latA: p.lat + p.hw, latB: p.lat - p.hw, yA: 0.06, yB: 0.06, vScale: 2.6, close: false,
     });
   }
   group.add(new THREE.Mesh(padBuilder.geometry(), padMat));
 
   // Flechas pintadas en las rampas.
-  const arrowMat = new THREE.MeshBasicMaterial({ map: arrowTex(), transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  const arrowMat = new THREE.MeshStandardMaterial({
+    map: arrowTex(),
+    emissive: 0xffffff,
+    emissiveMap: arrowTex(),
+    emissiveIntensity: 0.5,
+    transparent: true,
+    depthWrite: false,
+    roughness: 0.6,
+    side: THREE.DoubleSide,
+  });
   const arrowBuilder = new MeshBuilder();
   for (const r of ramps) {
     const start = Math.floor(r.f0 * N);
     const count = Math.max(2, Math.ceil((r.f1 - r.f0) * N));
     addRibbon(arrowBuilder, samples, {
-      start,
-      count,
-      latA: half * 0.5,
-      latB: -half * 0.5,
-      yA: 0.07,
-      yB: 0.07,
-      vScale: 2.4,
-      close: false,
+      start, count, latA: half * 0.5, latB: -half * 0.5, yA: 0.07, yB: 0.07, vScale: 2.4, close: false,
     });
   }
   group.add(new THREE.Mesh(arrowBuilder.geometry(), arrowMat));
@@ -398,7 +416,6 @@ export function createTrack(scene, trackId) {
 
   // ----------------------------------------------------------------
   // Cajas de objetos (solo posiciones; las dibuja el bloque de objetos).
-  // 3 filas de 4 cajas a lo ancho de la carretera.
   // ----------------------------------------------------------------
   const itemBoxPositions = [];
   const boxLaterals = [-6.3, -2.1, 2.1, 6.3];
@@ -439,112 +456,26 @@ export function createTrack(scene, trackId) {
   {
     const gb = new MeshBuilder();
     for (const slot of getStartGrid(8)) {
-      addGroundQuad(gb, slot.position.x, slot.position.y, slot.position.z, slot.heading, 1.0, 2.4, 0.05);
+      addGroundQuad(gb, slot.position.x, slot.position.y, slot.position.z, slot.heading, 1.0, 2.4, 0.055);
     }
-    group.add(new THREE.Mesh(gb.geometry(), new THREE.MeshBasicMaterial({ color: 0xffe14d, side: THREE.DoubleSide })));
+    group.add(
+      new THREE.Mesh(
+        gb.geometry(),
+        new THREE.MeshStandardMaterial({ color: 0xffe14d, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide })
+      )
+    );
   }
 
   // ----------------------------------------------------------------
-  // Escenario temático. Se construye ANTES que el terreno porque el tema
-  // define `ambient`: los colores del propio terreno, el cielo, la niebla y
-  // las luces. (Antes se leía `cfg.theme.ambient`, es decir una propiedad de
-  // la función, no del objeto que devuelve; por eso todo caía en el verde
-  // por defecto y desert/snow se veían como prado.)
+  // Escenario temático (props del bioma).
   // ----------------------------------------------------------------
-  const ctx = { samples, half, band: BAND, isOnTrack, rnd, length, centroid, sampleAt };
-  const theme = cfg.theme(ctx);
-  const ambient = theme.ambient || {};
-
-  // ----------------------------------------------------------------
-  // Terreno de fondo (hasta el horizonte, sin huecos).
-  // ----------------------------------------------------------------
-  const useVC = typeof ambient.terrainColor === 'function';
-  const tmpColor = new THREE.Color();
-  {
-    const size = 4400;
-    const seg = 132;
-    const geo = new THREE.PlaneGeometry(size, size, seg, seg);
-    geo.rotateX(-Math.PI / 2);
-    geo.translate(centroid.x, 0, centroid.z);
-    const pos = geo.attributes.position;
-    const colors = new Float32Array(pos.count * 3);
-    const amp = ambient.duneAmp || 12;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const ns = nearestSampleXZ(x, z);
-      const base = ns.y - 0.45;
-      const n1 = fbm(x * 0.0032 + 11, z * 0.0032 + 7);
-      const n2 = fbm(x * 0.018 + 3, z * 0.018 + 5);
-      const far = (n1 - 0.5) * 2 * amp + (n2 - 0.5) * 2 * (amp * 0.18);
-      const blend = clamp((ns.d - 34) / 150, 0, 1);
-      const smooth = blend * blend * (3 - 2 * blend);
-      const h = base * (1 - smooth) + (base + far) * smooth;
-      pos.setY(i, h);
-      if (useVC) {
-        const c = ambient.terrainColor(x, z, h - base);
-        colors[i * 3] = c.r;
-        colors[i * 3 + 1] = c.g;
-        colors[i * 3 + 2] = c.b;
-      }
-    }
-    geo.computeVertexNormals();
-    if (useVC) geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    const terrTex = grainTex(ambient.terrainBase || '#7fbf6a', ambient.terrainLight || '#a6d98f', ambient.terrainDark || '#5c9a4a', cfg.seed + 9, 4000);
-    terrTex.repeat.set(70, 70);
-    const terrMat = new THREE.MeshLambertMaterial({ map: terrTex, vertexColors: useVC });
-    const terrain = new THREE.Mesh(geo, terrMat);
-    terrain.receiveShadow = true;
-    group.add(terrain);
-  }
-
-  // ----------------------------------------------------------------
-  // Cielo, sol y luces.
-  // ----------------------------------------------------------------
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(1900, 32, 16),
-    new THREE.MeshBasicMaterial({ map: skyTex(ambient.skyStops || [[0, '#2f6fd0'], [1, '#eaf6ff']]), side: THREE.BackSide, fog: false, depthWrite: false })
-  );
-  sky.position.copy(centroid);
-  group.add(sky);
-
-  const sunDir = new THREE.Vector3(...(ambient.sunDir || [0.5, 0.7, 0.45])).normalize();
-  const sunVis = new THREE.Mesh(
-    new THREE.SphereGeometry(45, 16, 12),
-    new THREE.MeshBasicMaterial({ color: ambient.sunVisual || '#fff4d6', fog: false })
-  );
-  sunVis.position.copy(centroid).addScaledVector(sunDir, 1500);
-  group.add(sunVis);
-
-  const hemi = new THREE.HemisphereLight(ambient.hemiSky || 0xbfe6ff, ambient.hemiGround || 0x3f6b2a, ambient.hemiIntensity ?? 0.9);
-  group.add(hemi);
-  const sun = new THREE.DirectionalLight(ambient.sunColor || 0xffffff, ambient.sunIntensity ?? 2.2);
-  sun.position.copy(centroid).addScaledVector(sunDir, 320);
-  sun.target.position.copy(centroid);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  const R = 360;
-  sun.shadow.camera.left = -R;
-  sun.shadow.camera.right = R;
-  sun.shadow.camera.top = R;
-  sun.shadow.camera.bottom = -R;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 1400;
-  sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.bias = -0.0007;
-  sun.shadow.normalBias = 0.6;
-  group.add(sun);
-  group.add(sun.target);
-
-  scene.background = new THREE.Color(ambient.background || 0x87c9ff);
-  scene.fog = new THREE.Fog(ambient.fog || 0xbcdcff, ambient.fogNear ?? 240, ambient.fogFar ?? 1300);
+  const theme = cfg.build(ctx);
+  group.add(theme.group);
+  if (theme.update) updaters.push(theme.update);
 
   // ----------------------------------------------------------------
   // Estructuras comunes.
   // ----------------------------------------------------------------
-  group.add(theme.group);
-  if (theme.update) updaters.push(theme.update);
-
   group.add(buildStartArch(samples, half, def.name, cfg.palette));
   const stands = buildGrandstands(samples, half, cfg.palette, rnd);
   group.add(stands.group);
@@ -663,7 +594,6 @@ export function createTrack(scene, trackId) {
     return pts;
   }
 
-  // Línea de carrera: centro desplazado al interior de las curvas.
   const racingLine = (() => {
     const count = 300;
     const out = [];
@@ -677,16 +607,14 @@ export function createTrack(scene, trackId) {
       const f1z = behind.tangent.z;
       const f2x = ahead.tangent.x;
       const f2z = ahead.tangent.z;
-      const ycomp = f1z * f2x - f1x * f2z; // >0 = gira a la izquierda
+      const ycomp = f1z * f2x - f1x * f2z;
       const dot = clamp(f1x * f2x + f1z * f2z, -1, 1);
       const ang = Math.acos(dot);
       const sign = ycomp >= 0 ? 1 : -1;
       const offset = sign * Math.min(0.3 * half, ang * 26);
       const maxOff = half - 1.2;
       const lat = clamp(offset, -maxOff, maxOff);
-      out.push(
-        new THREE.Vector3(sa.pos.x + sa.left.x * lat, sa.pos.y, sa.pos.z + sa.left.z * lat)
-      );
+      out.push(new THREE.Vector3(sa.pos.x + sa.left.x * lat, sa.pos.y, sa.pos.z + sa.left.z * lat));
     }
     return out;
   })();
@@ -702,8 +630,13 @@ export function createTrack(scene, trackId) {
   function dispose() {
     scene.remove(group);
     disposeObject(group);
-    scene.background = prevBackground;
-    scene.fog = prevFog;
+    sky.dispose();
+    terrain.material.dispose();
+    terrain.mesh.geometry.dispose();
+    for (const t of [asphalt.map, asphalt.normalMap, asphalt.roughnessMap, curbs.map, curbs.normalMap,
+      wallMaps.map, wallMaps.normalMap, offNormal, offTex, padTex, startTex, wear, startWear]) {
+      if (t) t.dispose();
+    }
   }
 
   const api = {
@@ -723,7 +656,10 @@ export function createTrack(scene, trackId) {
     getMinimapPoints,
     update,
     dispose,
-    // extras útiles (no rompen el contrato)
+    // extras (contrato §9.2 y utilidades)
+    sunLight: sky.sunLight,
+    ambient,
+    heightAt: terrain.heightAt,
     curve,
     samples,
     centroid,
@@ -740,9 +676,6 @@ export function createTrack(scene, trackId) {
 
 // ----------------------------------------------------------------
 // Silueta ligera del trazado para miniaturas de la interfaz.
-// ~120 puntos de la línea central en coordenadas de mundo (x, z).
-// No crea escena ni mallas: deriva de los MISMOS puntos de control que usa
-// `createTrack` (construye la misma CatmullRom centripeta cerrada).
 // ----------------------------------------------------------------
 export function getTrackOutline(trackId) {
   const def = TRACKS.find((t) => t.id === trackId) || TRACKS[0];

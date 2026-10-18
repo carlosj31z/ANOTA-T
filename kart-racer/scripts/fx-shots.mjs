@@ -1,7 +1,9 @@
-// Prueba del BLOQUE 7 (fx). Contrato §4.7 / SPEC C11, C12.
-// Levanta un dev server propio (puerto 4187), abre el autotest del circuito
-// "meadow", avanza la simulación ~20 s dejando renderizar, captura
-// shots/fx-race.png y reporta draw calls y partículas vivas (< máximo).
+// Prueba del BLOQUE 7 (fx). Contrato §4.7 / SPEC C11, C12 y §10.2.
+// Levanta un dev server propio (puerto 4214), abre el autotest del circuito
+// "meadow", avanza la simulación dejando renderizar, captura:
+//   - shots/fx-race.png    (acción de carrera a media vuelta)
+//   - shots/fx-action.png  (primer plano forzado: turbo + derrape nivel 3 + aura)
+// Reporta draw calls, partículas vivas y errores de consola.
 
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -13,10 +15,9 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ||= '/opt/pw-browsers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 4187;
+const PORT = 4214;
 const BASE = `http://localhost:${PORT}`;
 const TRACK = process.argv[2] || 'meadow';
-const SIM_SECONDS = 20;
 const SHOTS = path.join(ROOT, 'shots');
 
 async function waitForServer(url, timeoutMs = 40000) {
@@ -61,9 +62,28 @@ async function main() {
     });
 
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-    // Bloquea el cliente HMR de Vite: otros agentes editan src/* a la vez y un
-    // reload a mitad de la prueba destruiría el contexto de la página.
-    await page.route('**/@vite/client', (route) => route.abort());
+    // Cliente HMR neutralizado (otros agentes editan src/* a la vez y un reload a
+    // mitad de la prueba destruiría el contexto). Se sirve un stub que exporta
+    // lo que los módulos de Vite importan, en vez de abortar (abortar rompe la
+    // carga del grafo de módulos en esta versión de Vite).
+    const VITE_CLIENT_STUB = `
+const noop = () => {};
+export function createHotContext() {
+  return { accept: noop, acceptExports: noop, dispose: noop, prune: noop, invalidate: noop, on: noop, off: noop, send: noop, data: {} };
+}
+export function updateStyle(id, css) {
+  let s = document.getElementById(id);
+  if (!s) { s = document.createElement('style'); s.id = id; document.head.appendChild(s); }
+  s.textContent = css;
+}
+export function removeStyle(id) {
+  const s = document.getElementById(id);
+  if (s && s.parentNode) s.parentNode.removeChild(s);
+}
+`;
+    await page.route('**/@vite/client', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/javascript', body: VITE_CLIENT_STUB })
+    );
     const consoleErrors = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') consoleErrors.push(msg.text());
@@ -77,35 +97,60 @@ async function main() {
       timeout: 40000,
     });
 
-    const data = await page.evaluate(async (seconds) => {
+    // --- Captura 1: carrera en acción -------------------------------------
+    const race = await page.evaluate(async () => {
       const g = window.__game;
-      const t0 = performance.now();
-      const simCap = 14; // nos quedamos a mitad de carrera para ver acción
-      let sim = 0;
-      // Corre ~20 s reales dejando renderizar (los emisores continuos necesitan
-      // frames); sólo avanzamos física hasta `simCap` para no llegar a meta.
-      while ((performance.now() - t0) / 1000 < seconds && !g.finishedAll) {
-        if (sim < simCap) {
-          g.simulate(0.5);
-          sim += 0.5;
+      g.simulate(20);
+      // Acción ligera para que la captura muestre turbo + derrape (sin aura).
+      const karts = g.karts || [];
+      const player = karts.find((k) => k.isPlayer) || karts[0];
+      if (player) {
+        player.applyBoost(4, 1.2, 'item');
+        player.state.drifting = true;
+        player.state.driftDir = 1;
+        player.state.driftLevel = 2;
+        const t1 = performance.now();
+        while ((performance.now() - t1) / 1000 < 3) {
+          player.state.drifting = true;
+          player.state.driftLevel = 2;
+          await new Promise((r) => requestAnimationFrame(r));
         }
+      }
+      const s = window.__fxStats || null;
+      return { drawCalls: g.drawCalls || 0, fx: s ? { alive: s.alive, max: s.max, peak: s.peak } : null };
+    });
+    await page.screenshot({ path: path.join(SHOTS, 'fx-race.png') });
+
+    // --- Captura 2: primer plano forzado (turbo + derrape + aura) ----------
+    const action = await page.evaluate(async () => {
+      const g = window.__game;
+      const karts = g.karts || [];
+      const player = karts.find((k) => k.isPlayer) || karts[0];
+      if (!player) return null;
+      const force = (k) => {
+        k.applyBoost(4, 1.4, 'item');
+        k.state.drifting = true;
+        k.state.driftDir = 1;
+        k.state.driftLevel = 3;
+        k.state.aura = true;
+      };
+      force(player);
+      const t0 = performance.now();
+      while ((performance.now() - t0) / 1000 < 3) {
+        force(player);
         await new Promise((r) => requestAnimationFrame(r));
       }
       const s = window.__fxStats || null;
-      return {
-        simulated: sim,
-        finishedAll: !!g.finishedAll,
-        drawCalls: g.drawCalls || 0,
-        fx: s ? { alive: s.alive, max: s.max, peak: s.peak } : null,
-      };
-    }, SIM_SECONDS);
+      return { drawCalls: g.drawCalls || 0, fx: s ? { alive: s.alive, max: s.max, peak: s.peak } : null };
+    });
+    await page.screenshot({ path: path.join(SHOTS, 'fx-action.png') });
 
-    await page.screenshot({ path: path.join(SHOTS, 'fx-race.png') });
     await page.close();
 
-    const fxOk = data.fx && data.fx.alive <= data.fx.max && data.fx.peak <= data.fx.max;
+    const fxOk =
+      race.fx && race.fx.alive <= race.fx.max && race.fx.peak <= race.fx.max;
     if (!fxOk || consoleErrors.length > 0) failed = true;
-    result = { track: TRACK, ...data, fxOk, consoleErrors };
+    result = { track: TRACK, race, action, fxOk, consoleErrors };
   } catch (err) {
     failed = true;
     result = { track: TRACK, error: err && err.message ? err.message : String(err) };

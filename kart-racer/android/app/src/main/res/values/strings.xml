@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Rally Relámpago</string>
+    <string name="title_activity_main">Rally Relámpago</string>
+    <string name="package_name">com.rallyrelampago.game</string>
+    <string name="custom_url_scheme">com.rallyrelampago.game</string>
+</resources>

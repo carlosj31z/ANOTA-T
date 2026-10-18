@@ -4,9 +4,11 @@
 // reconstruir el DOM.
 
 import './styles.css';
-import { colorCss, characterPortrait, itemIcon, trackThumb, boltSvg } from './icons.js';
+import { colorCss, characterPortrait, itemIcon, perkIcon, trackThumb, boltSvg } from './icons.js';
 
 const MAX_KMH = 150;
+const QUALITY_ORDER = ['low', 'high', 'ultra'];
+const QUALITY_LABEL = { low: 'BAJO', high: 'ALTO', ultra: 'ULTRA' };
 const STAT_DEFS = [
   { key: 'speed', label: 'VELOCIDAD' },
   { key: 'accel', label: 'ACELERACIÓN' },
@@ -38,11 +40,27 @@ function retrigger(node, cls) {
   node.classList.add(cls);
 }
 
+// En táctil un tap emite un mouseenter sintético antes del click; si
+// seleccionáramos en hover, el primer toque confirmaría sin poder explorar.
+function prefersTouch() {
+  try {
+    if (typeof window === 'undefined') return false;
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+    return (navigator.maxTouchPoints || 0) > 0 && 'ontouchstart' in window;
+  } catch (e) {
+    return false;
+  }
+}
+
 export function createUI(root, opts = {}) {
   const onSound = typeof opts.onSound === 'function' ? opts.onSound : () => {};
+  const onQuality = typeof opts.onQuality === 'function' ? opts.onQuality : null;
 
   const layer = el('div', 'ui-layer');
   root.appendChild(layer);
+
+  let quality = QUALITY_ORDER.includes(opts.quality) ? opts.quality : 'high';
+  let qualityLabelEl = null;
 
   let screen = null; // pantalla de menú actual
   let menuHandler = null; // handler de teclado activo (solo menús)
@@ -59,6 +77,36 @@ export function createUI(root, opts = {}) {
       onSound(name);
     } catch (e) {
       /* la UI nunca debe tumbar el bucle */
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Calidad gráfica (botón en el título)
+  // ---------------------------------------------------------------
+  function refreshQualityLabel() {
+    if (qualityLabelEl) {
+      qualityLabelEl.innerHTML = `GRÁFICOS: <b>${QUALITY_LABEL[quality] || quality}</b>`;
+    }
+  }
+
+  function setQualityLabel(q) {
+    if (QUALITY_ORDER.includes(q)) {
+      quality = q;
+      refreshQualityLabel();
+    }
+  }
+
+  function cycleQuality() {
+    const i = QUALITY_ORDER.indexOf(quality);
+    quality = QUALITY_ORDER[(i + 1) % QUALITY_ORDER.length];
+    refreshQualityLabel();
+    sound('menu-move');
+    if (onQuality) {
+      try {
+        onQuality(quality);
+      } catch (e) {
+        /* nunca tumbar el bucle */
+      }
     }
   }
 
@@ -104,6 +152,7 @@ export function createUI(root, opts = {}) {
       screen.remove();
       screen = null;
     }
+    qualityLabelEl = null;
   }
 
   function clearHud() {
@@ -127,7 +176,7 @@ export function createUI(root, opts = {}) {
           <span class="logo-word logo-word-1">RALLY</span>
           <span class="logo-word logo-word-2">RELÁMPAGO${boltSvg()}</span>
         </div>
-        <p class="game-subtitle">8 pilotos · 3 circuitos · 3 vueltas al límite</p>
+        <p class="game-subtitle">11 pilotos · 3 circuitos · 3 vueltas al límite</p>
         <button type="button" class="start-prompt">PULSA <b>ENTER</b> PARA EMPEZAR</button>
         <div class="controls-summary">
           <span><b>↑↓←→</b> Conducir</span>
@@ -135,6 +184,7 @@ export function createUI(root, opts = {}) {
           <span><b>E</b> Objeto</span>
           <span><b>ESC</b> Pausa</span>
         </div>
+        <button type="button" class="quality-btn"></button>
       </div>`;
     const start = () => {
       sound('menu-select');
@@ -142,6 +192,12 @@ export function createUI(root, opts = {}) {
     };
     node.querySelector('.start-prompt').addEventListener('click', start);
     mountScreen(node);
+    qualityLabelEl = node.querySelector('.quality-btn');
+    refreshQualityLabel();
+    qualityLabelEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cycleQuality();
+    });
     setMenu((e) => {
       if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') {
         start();
@@ -170,29 +226,45 @@ export function createUI(root, opts = {}) {
           <div class="cs-name"></div>
           <div class="cs-class"></div>
           <div class="cs-stats"></div>
-          <div class="cs-hint">← → ↑ ↓ mover · ENTER elegir · ESC volver</div>
+          <div class="cs-perk">
+            <div class="cs-perk-badge"><span class="cs-perk-icon"></span><span>VENTAJA</span></div>
+            <div class="cs-perk-name"></div>
+            <div class="cs-perk-desc"></div>
+          </div>
         </aside>
-      </div>`;
+      </div>
+      <div class="screen-actions">
+        <button type="button" class="ui-btn option cs-back">VOLVER</button>
+        <button type="button" class="ui-btn option primary cs-pick">ELEGIR</button>
+      </div>
+      <div class="cs-hint">Toca para elegir · <b>ENTER</b> confirma · <b>ESC</b> vuelve</div>`;
 
     const grid = node.querySelector('.char-grid');
     const portraitEl = node.querySelector('.cs-portrait');
     const nameEl = node.querySelector('.cs-name');
     const classEl = node.querySelector('.cs-class');
     const statsHost = node.querySelector('.cs-stats');
+    const perkIconEl = node.querySelector('.cs-perk-icon');
+    const perkNameEl = node.querySelector('.cs-perk-name');
+    const perkDescEl = node.querySelector('.cs-perk-desc');
 
     const cards = chars.map((ch, i) => {
       const card = el('button', 'char-card');
       card.type = 'button';
       card.innerHTML = `
-        <div class="cc-portrait">${characterPortrait(ch.species, ch.colors)}</div>
+        <div class="cc-portrait">${characterPortrait(ch.species, ch.colors, ch.look)}</div>
         <div class="cc-name">${ch.name}</div>
         <div class="cc-kart" style="background:${colorCss(ch.colors.kart)}"></div>`;
-      card.addEventListener('mouseenter', () => {
-        if (i !== index) select(i, true);
-      });
+      if (!prefersTouch()) {
+        card.addEventListener('mouseenter', () => {
+          if (i !== index) select(i, true);
+        });
+      }
       card.addEventListener('click', () => {
-        select(i, false);
-        pick();
+        // Táctil: primer toque selecciona, segundo confirma.
+        // Ratón: el hover ya seleccionó, así que el clic confirma.
+        if (i !== index) select(i, false);
+        else pick();
       });
       grid.appendChild(card);
       return card;
@@ -221,7 +293,7 @@ export function createUI(root, opts = {}) {
       index = next;
       cards.forEach((c, k) => c.classList.toggle('selected', k === index));
       const ch = chars[index];
-      portraitEl.innerHTML = characterPortrait(ch.species, ch.colors);
+      portraitEl.innerHTML = characterPortrait(ch.species, ch.colors, ch.look);
       nameEl.textContent = ch.name;
       classEl.textContent = 'CLASE ' + (WEIGHT_LABEL[ch.weightClass] || ch.weightClass);
       classEl.dataset.cls = ch.weightClass;
@@ -232,6 +304,10 @@ export function createUI(root, opts = {}) {
           seg.style.transitionDelay = k * 45 + 'ms';
         });
       }
+      const perk = ch.perk || {};
+      perkIconEl.innerHTML = perkIcon(perk.id);
+      perkNameEl.textContent = perk.name || '';
+      perkDescEl.textContent = perk.description || '';
       if (changed) retrigger(portraitEl, 'pop');
       if (withSound && changed) sound('menu-move');
     }
@@ -246,6 +322,9 @@ export function createUI(root, opts = {}) {
       sound('menu-back');
       if (onBack) onBack();
     }
+
+    node.querySelector('.cs-pick').addEventListener('click', pick);
+    node.querySelector('.cs-back').addEventListener('click', back);
 
     mountScreen(node);
     select(0, false);
@@ -295,7 +374,11 @@ export function createUI(root, opts = {}) {
       <div class="stripes"></div>
       <h2 class="screen-title">ELIGE CIRCUITO</h2>
       <div class="track-row"></div>
-      <div class="cs-hint">← → mover · ENTER elegir · ESC volver</div>`;
+      <div class="screen-actions">
+        <button type="button" class="ui-btn option ts-back">VOLVER</button>
+        <button type="button" class="ui-btn option primary ts-pick">ELEGIR</button>
+      </div>
+      <div class="cs-hint">Toca para elegir · <b>ENTER</b> confirma · <b>ESC</b> vuelve</div>`;
 
     const row = node.querySelector('.track-row');
     const cards = list.map((t, i) => {
@@ -305,12 +388,14 @@ export function createUI(root, opts = {}) {
         <div class="tc-thumb">${trackThumb(t.id, t.previewColor)}</div>
         <div class="tc-name">${t.name}</div>
         <div class="tc-desc">${t.description || ''}</div>`;
-      card.addEventListener('mouseenter', () => {
-        if (i !== index) select(i, true);
-      });
+      if (!prefersTouch()) {
+        card.addEventListener('mouseenter', () => {
+          if (i !== index) select(i, true);
+        });
+      }
       card.addEventListener('click', () => {
-        select(i, false);
-        pick();
+        if (i !== index) select(i, false);
+        else pick();
       });
       row.appendChild(card);
       return card;
@@ -337,6 +422,9 @@ export function createUI(root, opts = {}) {
       sound('menu-back');
       if (onBack) onBack();
     }
+
+    node.querySelector('.ts-pick').addEventListener('click', pick);
+    node.querySelector('.ts-back').addEventListener('click', back);
 
     mountScreen(node);
     select(0, false);
@@ -841,5 +929,7 @@ export function createUI(root, opts = {}) {
     hidePause,
     showResults,
     hideAll,
+    setQualityLabel,
+    cycleQuality,
   };
 }

@@ -1,192 +1,234 @@
-// BLOQUE 1 — Circuito "Dunas Doradas": arena, dunas, cactus, rocas, pirámide, oasis.
+// BLOQUE 1 — Circuito "Dunas Doradas": tarde dorada, dunas, cactus redondeados,
+// rocas, mesas, arcos, pirámide lejana, oasis con agua y polvo en el aire.
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { scatterPositions } from './builder.js';
-import { waterTex } from './textures.js';
+import { mergeGeo, fbm2, smoothstep, displaceRadial } from './procgen.js';
+import { buildCactus, buildShrub, buildPalm, scatter, instantiate } from './vegetation.js';
+import { buildRock, rockMaterial } from './rocks.js';
+import { createWaterMaterial } from './water.js';
+import { buildDust, buildTracksideFlags } from './props.js';
+
+export const DESERT_AMBIENT = {
+  seed: 9021,
+  background: 0xf0b46a,
+  fogColor: 0xf1c37e,
+  fogDensity: 0.00075,
+  sky: {
+    elevation: 12,
+    azimuth: 100,
+    turbidity: 4.5,
+    rayleigh: 1.0,
+    mieCoefficient: 0.009,
+    mieDirectionalG: 0.86,
+    sun: { color: 0xffd9a0, intensity: 3.2 },
+    hemi: { sky: 0xffe0b0, ground: 0xa9764b, intensity: 0.6 },
+    sunVisual: '#ffcf87',
+    sunVisualSize: 40,
+    sunVisualOpacity: 0.85,
+    shadowRadius: 150,
+  },
+  terrain: {
+    detailNormal: 'sand',
+    detailRepeat: 46,
+    amp: 18,
+    fineAmp: 2.2,
+    flattenIn: 28,
+    flattenOut: 160,
+    roughness: 0.98,
+    normalScale: 0.5,
+    color: (x, z, h, rel, c) => {
+      const n = fbm2(x * 0.02 + 5, z * 0.02 + 2);
+      const rock = smoothstep(0.62, 0.85, fbm2(x * 0.008 + 30, z * 0.008 + 12));
+      const dark = smoothstep(0.4, 0.75, n);
+      let r = 0.85 - dark * 0.08;
+      let g = 0.7 - dark * 0.06;
+      let b = 0.42 - dark * 0.04;
+      c.setRGB(
+        r * (1 - rock) + 0.6 * rock,
+        g * (1 - rock) + 0.42 * rock,
+        b * (1 - rock) + 0.3 * rock
+      );
+    },
+  },
+};
 
 export function buildDesert(ctx) {
-  const { rnd, samples, half, band, isOnTrack } = ctx;
+  const { rnd, samples, half, heightAt, centroid, sampleSpacing } = ctx;
   const group = new THREE.Group();
+  group.name = 'desert-props';
   const updaters = [];
-  const dummy = new THREE.Object3D();
-  const col = new THREE.Color();
+  const rockTones = [0xb98a5a, 0xa8764a, 0xc99c6a, 0x8f6a45, 0xcaa06f];
 
-  const blocksRoad = (m) => (x, z) => isOnTrack(x, z, m);
-
-  // -------------------- Cactus --------------------
-  const armGeo = (() => {
-    const parts = [new THREE.CylinderGeometry(0.36, 0.44, 3.6, 7).translate(0, 1.8, 0)];
-    const a1 = new THREE.CylinderGeometry(0.24, 0.26, 1.7, 6).translate(0, 0.85, 0);
-    a1.rotateZ(Math.PI / 2);
-    a1.translate(1.0, 2.1, 0);
-    const up1 = new THREE.CylinderGeometry(0.24, 0.26, 1.6, 6).translate(0, 0.8, 0);
-    up1.translate(1.8, 2.4, 0);
-    const a2 = new THREE.CylinderGeometry(0.24, 0.26, 1.5, 6).translate(0, 0.75, 0);
-    a2.rotateZ(Math.PI / 2);
-    a2.translate(-0.9, 1.6, 0);
-    const up2 = new THREE.CylinderGeometry(0.24, 0.26, 1.3, 6).translate(0, 0.65, 0);
-    up2.translate(-1.6, 1.9, 0);
-    parts.push(a1, up1, a2, up2);
-    return mergeGeometries(parts);
-  })();
-  const cactusMat = new THREE.MeshLambertMaterial({ color: 0x3f8f4f });
-  const cactusPos = scatterPositions(rnd, 90, { minR: 30, maxR: 320, isOnTrack: blocksRoad(6) });
-  const cacti = new THREE.InstancedMesh(armGeo, cactusMat, cactusPos.length);
-  cacti.castShadow = true;
-  for (let i = 0; i < cactusPos.length; i++) {
-    const p = cactusPos[i];
-    const s = 0.7 + rnd() * 0.9;
-    dummy.position.set(p.x, 0, p.z);
-    dummy.rotation.set(0, p.a, 0);
-    dummy.scale.set(s, 0.85 + rnd() * 0.7, s);
-    dummy.updateMatrix();
-    cacti.setMatrixAt(i, dummy.matrix);
+  // -------------------- Cactus redondeados --------------------
+  const cactusMat = new THREE.MeshStandardMaterial({ color: 0x3f8f4f, roughness: 0.85, metalness: 0.0 });
+  const cactusSpecs = [buildCactus(3, { height: 5 }), buildCactus(17, { height: 3.6 })];
+  const cactusPos = scatter(ctx, rnd, 80, { minR: 30, maxR: 320, clearance: 7, flatness: 6 });
+  for (let v = 0; v < cactusSpecs.length; v++) {
+    const list = cactusPos.filter((_, i) => i % cactusSpecs.length === v);
+    if (!list.length) continue;
+    group.add(
+      instantiate(cactusSpecs[v].body, cactusMat, list, { scaleMin: 0.7, scaleMax: 1.4, yScaleVar: 0.25 })
+    );
   }
-  group.add(cacti);
 
-  // -------------------- Rocas y mesetas --------------------
-  const rockGeo = new THREE.IcosahedronGeometry(1, 0);
-  const rockMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  const rockPos = scatterPositions(rnd, 130, { minR: 26, maxR: 380, isOnTrack: blocksRoad(4) });
-  const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockPos.length);
-  rocks.castShadow = true;
-  rocks.receiveShadow = true;
-  const rockTones = [0xb98a5a, 0xa8764a, 0xc99c6a, 0x8f6a45];
-  for (let i = 0; i < rockPos.length; i++) {
-    const p = rockPos[i];
-    const s = 0.8 + rnd() * 3.2;
-    dummy.position.set(p.x, s * 0.35, p.z);
-    dummy.rotation.set(rnd() * 0.5, p.a, rnd() * 0.5);
-    dummy.scale.set(s, s * (0.5 + rnd() * 0.5), s * (0.7 + rnd() * 0.6));
-    dummy.updateMatrix();
-    rocks.setMatrixAt(i, dummy.matrix);
-    rocks.setColorAt(i, col.setHex(rockTones[Math.floor(rnd() * rockTones.length)]));
+  // -------------------- Rocas --------------------
+  const rockMat = rockMaterial();
+  const rockSpecs = [buildRock(5, { detail: 2 }), buildRock(23, { detail: 2 }), buildRock(41, { detail: 1 })];
+  const rockPos = scatter(ctx, rnd, 140, { minR: 24, maxR: 380, clearance: 5 });
+  for (let v = 0; v < rockSpecs.length; v++) {
+    const list = rockPos.filter((_, i) => i % rockSpecs.length === v);
+    if (!list.length) continue;
+    group.add(
+      instantiate(rockSpecs[v], rockMat, list, {
+        scaleMin: 0.8,
+        scaleMax: 4.2,
+        yScaleVar: 0.5,
+        receiveShadow: true,
+        colors: () => rockTones[Math.floor(rnd() * rockTones.length)],
+      })
+    );
   }
-  if (rocks.instanceColor) rocks.instanceColor.needsUpdate = true;
-  group.add(rocks);
 
-  // Mesetas lejanas (cilindros de tapa plana).
-  const mesaMat = new THREE.MeshLambertMaterial({ color: 0xa9764b, flatShading: true });
+  // -------------------- Mesas lejanas --------------------
+  const mesaParts = [];
   for (let i = 0; i < 5; i++) {
     const a = rnd() * Math.PI * 2;
-    const r = 260 + rnd() * 320;
-    const mesa = new THREE.Mesh(new THREE.CylinderGeometry(14 + rnd() * 16, 22 + rnd() * 20, 20 + rnd() * 22, 7), mesaMat);
-    mesa.position.set(Math.cos(a) * r, 8, Math.sin(a) * r);
-    mesa.rotation.y = rnd() * Math.PI;
-    group.add(mesa);
+    const r = 280 + rnd() * 340;
+    const rb = 16 + rnd() * 18;
+    const hgt = 22 + rnd() * 24;
+    const g = new THREE.CylinderGeometry(rb * (0.5 + rnd() * 0.3), rb, hgt, 16, 4);
+    displaceRadial(g, (x, z) => (fbm2(x * 0.06 + i * 7, z * 0.06 + i * 3) - 0.5) * 4.5);
+    g.rotateY(rnd() * Math.PI);
+    g.translate(
+      centroid.x + Math.cos(a) * r,
+      heightAt(centroid.x + Math.cos(a) * r, centroid.z + Math.sin(a) * r) + hgt * 0.35,
+      centroid.z + Math.sin(a) * r
+    );
+    mesaParts.push(g);
   }
+  const mesas = new THREE.Mesh(
+    mergeGeo(mesaParts),
+    new THREE.MeshStandardMaterial({ color: 0xa9764b, roughness: 0.95, metalness: 0.0, flatShading: true })
+  );
+  mesas.castShadow = true;
+  group.add(mesas);
 
-  // -------------------- Arco de roca --------------------
-  const archMat = new THREE.MeshLambertMaterial({ color: 0xa8764a, flatShading: true });
+  // -------------------- Arcos de roca --------------------
+  const archParts = [];
   for (let i = 0; i < 3; i++) {
     const a = rnd() * Math.PI * 2;
-    const r = 200 + rnd() * 200;
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(6 + rnd() * 3, 1.8, 6, 12, Math.PI), archMat);
-    arch.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
-    arch.rotation.y = rnd() * Math.PI;
-    arch.castShadow = true;
-    group.add(arch);
+    const r = 210 + rnd() * 200;
+    const g = new THREE.TorusGeometry(6 + rnd() * 3, 1.9, 8, 14, Math.PI);
+    g.rotateY(rnd() * Math.PI);
+    g.translate(centroid.x + Math.cos(a) * r, heightAt(centroid.x + Math.cos(a) * r, centroid.z + Math.sin(a) * r), centroid.z + Math.sin(a) * r);
+    archParts.push(g);
   }
+  const arches = new THREE.Mesh(
+    mergeGeo(archParts),
+    new THREE.MeshStandardMaterial({ color: 0xa8764a, roughness: 0.95, metalness: 0.0, flatShading: true })
+  );
+  arches.castShadow = true;
+  group.add(arches);
 
   // -------------------- Pirámide escalonada lejana --------------------
   const pyr = new THREE.Group();
-  const pyrMat = new THREE.MeshLambertMaterial({ color: 0xd8b26a, flatShading: true });
+  const pyrMat = new THREE.MeshStandardMaterial({ color: 0xd8b26a, roughness: 0.9, metalness: 0.0, flatShading: true });
+  const pyrParts = [];
   for (let i = 0; i < 6; i++) {
     const w = 34 - i * 5;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(w, 3.2, w), pyrMat);
-    box.position.y = 1.6 + i * 3.2;
-    box.rotation.y = i * 0.06;
-    pyr.add(box);
+    const box = new THREE.BoxGeometry(w, 3.2, w);
+    box.translate(0, 1.6 + i * 3.2, 0);
+    box.rotateY(i * 0.06);
+    pyrParts.push(box);
   }
+  const pyrMesh = new THREE.Mesh(mergeGeo(pyrParts), pyrMat);
+  pyrMesh.castShadow = true;
+  pyr.add(pyrMesh);
   const pyrA = 2.3;
-  pyr.position.set(Math.cos(pyrA) * 430, 0, Math.sin(pyrA) * 430);
+  pyr.position.set(centroid.x + Math.cos(pyrA) * 430, heightAt(centroid.x + Math.cos(pyrA) * 430, centroid.z + Math.sin(pyrA) * 430), centroid.z + Math.sin(pyrA) * 430);
   pyr.rotation.y = pyrA;
   group.add(pyr);
 
-  // -------------------- Oasis: estanque + palmeras --------------------
+  // -------------------- Arbustos secos --------------------
+  const shrubMat = new THREE.MeshStandardMaterial({ color: 0x9a8548, roughness: 0.95, metalness: 0.0 });
+  const shrubSpecs = [buildShrub(7), buildShrub(19), buildShrub(31)];
+  const shrubPos = scatter(ctx, rnd, 200, { minR: 20, maxR: 340, clearance: 4 });
+  for (let v = 0; v < shrubSpecs.length; v++) {
+    const list = shrubPos.filter((_, i) => i % shrubSpecs.length === v);
+    if (!list.length) continue;
+    group.add(
+      instantiate(shrubSpecs[v].geo, shrubMat, list, { castShadow: false, scaleMin: 0.7, scaleMax: 1.6 })
+    );
+  }
+
+  // -------------------- Oasis: agua + palmeras --------------------
   const oasisA = rnd() * Math.PI * 2;
   const oasisR = 150 + rnd() * 60;
-  const ox = Math.cos(oasisA) * oasisR;
-  const oz = Math.sin(oasisA) * oasisR;
-  const waterMap = waterTex();
-  waterMap.repeat.set(4, 4);
-  const pond = new THREE.Mesh(
-    new THREE.CircleGeometry(16, 24),
-    new THREE.MeshLambertMaterial({ map: waterMap, color: 0x8fd8ff, transparent: true, opacity: 0.92 })
-  );
-  pond.rotation.x = -Math.PI / 2;
-  pond.position.set(ox, 0.15, oz);
-  group.add(pond);
-  const sandRing = new THREE.Mesh(
-    new THREE.RingGeometry(16, 24, 24),
-    new THREE.MeshLambertMaterial({ color: 0xe8cf93 })
-  );
-  sandRing.rotation.x = -Math.PI / 2;
-  sandRing.position.set(ox, 0.08, oz);
-  group.add(sandRing);
-
-  const palmGeo = (() => {
-    const parts = [new THREE.CylinderGeometry(0.3, 0.45, 5.5, 6).translate(0, 2.75, 0)];
-    for (let i = 0; i < 6; i++) {
-      const frond = new THREE.BoxGeometry(3.4, 0.16, 0.9);
-      frond.translate(1.7, 0, 0);
-      frond.rotateZ(0.35);
-      frond.rotateY((i / 6) * Math.PI * 2);
-      frond.translate(0, 5.5, 0);
-      parts.push(frond);
-    }
-    return mergeGeometries(parts);
-  })();
-  const palmMat = new THREE.MeshLambertMaterial({ color: 0x4f9b4a, flatShading: true });
-  const palms = new THREE.InstancedMesh(palmGeo, palmMat, 14);
-  palms.castShadow = true;
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2 + rnd();
-    const r = 17 + rnd() * 4;
-    dummy.position.set(ox + Math.cos(a) * r, 0, oz + Math.sin(a) * r);
-    dummy.rotation.set(0, rnd() * Math.PI * 2, 0);
-    dummy.scale.setScalar(0.85 + rnd() * 0.5);
-    dummy.updateMatrix();
-    palms.setMatrixAt(i, dummy.matrix);
-  }
-  group.add(palms);
-  updaters.push((dt) => {
-    waterMap.offset.y += dt * 0.04;
-    waterMap.offset.x += dt * 0.015;
-  });
-
-  const ambient = {
-    background: 0xf0b46a,
-    skyStops: [
-      [0, '#3f6fbf'],
-      [0.4, '#e08a3a'],
-      [0.7, '#f5b25a'],
-      [1, '#ffe0a8'],
-    ],
-    fog: 0xf0c07a,
-    fogNear: 240,
-    fogFar: 1250,
-    terrainBase: '#d9b26a',
-    terrainLight: '#e8c887',
-    terrainDark: '#b98d4d',
+  const ox = centroid.x + Math.cos(oasisA) * oasisR;
+  const oz = centroid.z + Math.sin(oasisA) * oasisR;
+  const oy = heightAt(ox, oz);
+  const water = createWaterMaterial({
+    seed: 7,
+    deep: 0x0f4f6e,
+    shallow: 0x35a2c8,
+    sky: 0xffe6bb,
     sunColor: 0xfff0c8,
-    sunIntensity: 2.7,
-    hemiSky: 0xffe0b0,
-    hemiGround: 0xb07a3a,
-    hemiIntensity: 0.75,
-    sunDir: [0.72, 0.6, 0.32],
-    sunVisual: '#fff0c0',
-    terrainColor: (x, z, h) => {
-      const t = Math.min(1, Math.max(0, h / 26));
-      return col.setRGB(0.84 - t * 0.12, 0.71 - t * 0.08, 0.42 + t * 0.08);
-    },
-    duneAmp: 16,
-  };
+    fogColor: 0xf1c37e,
+    fogDensity: 0.00075,
+    opacity: 0.88,
+    normalScale: 0.25,
+    flow: 0.035,
+  });
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(16, 40), water.material);
+  pond.rotation.x = -Math.PI / 2;
+  pond.position.set(ox, oy + 0.12, oz);
+  group.add(pond);
+  const ringGeo = new THREE.RingGeometry(16, 25, 40);
+  ringGeo.rotateX(-Math.PI / 2);
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial({ color: 0xe8cf93, roughness: 1.0 }));
+  ring.position.set(ox, oy + 0.1, oz);
+  ring.receiveShadow = true;
+  group.add(ring);
+  updaters.push(water.update);
+
+  const palmMatTrunk = new THREE.MeshStandardMaterial({ color: 0x8a6a3f, roughness: 0.9, metalness: 0.0 });
+  const palmMatFrond = new THREE.MeshStandardMaterial({ color: 0x4f9b4a, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
+  const palmSpecs = [buildPalm(2, { height: 8 }), buildPalm(14, { height: 6.5 }), buildPalm(26, { height: 9 })];
+  const palmPos = [];
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + rnd() * 0.3;
+    const r = 18 + rnd() * 5;
+    const x = ox + Math.cos(a) * r;
+    const z = oz + Math.sin(a) * r;
+    palmPos.push({ x, y: heightAt(x, z), z, a: rnd() * Math.PI * 2, s: 0.8 + rnd() * 0.5 });
+  }
+  for (let v = 0; v < palmSpecs.length; v++) {
+    const list = palmPos.filter((_, i) => i % palmSpecs.length === v);
+    if (!list.length) continue;
+    group.add(instantiate(palmSpecs[v].trunk, palmMatTrunk, list, { scaleMin: 0.85, scaleMax: 1.2 }));
+    group.add(instantiate(palmSpecs[v].fronds, palmMatFrond, list, { castShadow: false, scaleMin: 0.85, scaleMax: 1.2 }));
+  }
+
+  // -------------------- Polvo en el aire --------------------
+  const dust = buildDust(centroid.x, centroid.z, 700, { seed: 13, color: 0xe6c98a, size: 0.55 });
+  group.add(dust.group);
+  updaters.push(dust.update);
+
+  // -------------------- Banderas --------------------
+  for (const side of [1, -1]) {
+    const flags = buildTracksideFlags(samples, {
+      half,
+      sideSign: side,
+      spacing: 18,
+      sampleSpacing,
+      colors: [0xff8a2b, 0xffd23f, 0xc0392b, 0xffffff],
+    });
+    group.add(flags.group);
+  }
 
   function update(dt, time) {
     for (const u of updaters) u(dt, time);
   }
 
-  return { group, update, ambient };
+  return { group, update };
 }

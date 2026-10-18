@@ -1,0 +1,271 @@
+/* BLOQUE TÁCTIL — Controles táctiles (CONTRATO §10.3, §6).
+   Overlay semitransparente pensado para móvil en horizontal. Respeta las zonas
+   del HUD: arriba-izq objeto, arriba-centro cronómetro, arriba-der vueltas,
+   abajo-izq velocímetro, abajo-der posición + minimapa. */
+
+.tc-root {
+  --tc-pad: clamp(12px, 2.4vh, 30px);
+  --tc-minimap: clamp(120px, 21vh, 220px);
+  --tc-gap: clamp(8px, 1.5vmin, 16px);
+  --tc-yellow: #ffd23f;
+  --tc-blue: #2f80ff;
+  --tc-red: #ff3b3b;
+  --tc-green: #35d073;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-weight: 900;
+  color: #fff;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.18s ease;
+}
+
+.tc-root.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.tc-root * {
+  box-sizing: border-box;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------------------------------------------------------- botones -- */
+
+.tc-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: #fff;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 1px 2px 0 rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  border-radius: 50%;
+  background: rgba(10, 14, 30, 0.55);
+  border: clamp(2px, 0.5vmin, 4px) solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 0 14px rgba(0, 0, 0, 0.45);
+  opacity: 0.72;
+  transition: transform 0.07s ease, filter 0.07s ease, opacity 0.12s ease,
+    background 0.12s ease, border-color 0.12s ease;
+}
+
+.tc-btn.active {
+  transform: scale(0.9);
+  filter: brightness(1.55) saturate(1.2);
+  opacity: 1;
+  border-color: #fff;
+}
+
+.tc-btn svg {
+  width: 55%;
+  height: 55%;
+  display: block;
+  pointer-events: none;
+}
+
+/* Pausa — arriba centro-derecha (no tapa las vueltas). */
+.tc-pause {
+  position: absolute;
+  top: max(clamp(10px, 2.2vh, 26px), env(safe-area-inset-top));
+  left: 64%;
+  transform: translateX(-50%);
+  width: clamp(64px, 13vmin, 88px);
+  height: clamp(64px, 13vmin, 88px);
+  border-radius: 30%;
+}
+
+.tc-pause.active {
+  transform: translateX(-50%) scale(0.9);
+}
+
+/* ------------------------------------------------------ volante izquierdo -- */
+
+.tc-pad {
+  position: absolute;
+  left: 0;
+  top: 34%;
+  width: 46%;
+  height: 66%;
+  pointer-events: auto;
+}
+
+.tc-stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease;
+}
+
+.tc-stick.visible {
+  opacity: 1;
+}
+
+.tc-base {
+  position: absolute;
+  left: -70px;
+  top: -70px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(10, 14, 30, 0.15) 0%,
+    rgba(10, 14, 30, 0.42) 100%
+  );
+}
+
+.tc-knob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  border-radius: 50%;
+  background: rgba(255, 210, 63, 0.82);
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 18px rgba(255, 210, 63, 0.55), inset 0 0 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Flechas grandes (modo "buttons"). */
+.tc-arrows {
+  position: absolute;
+  left: max(clamp(10px, 2.4vh, 26px), env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  gap: var(--tc-gap);
+}
+
+.tc-root.mode-buttons .tc-arrows {
+  display: flex;
+}
+
+.tc-root.mode-buttons .tc-stick {
+  display: none;
+}
+
+.tc-arrow {
+  width: clamp(64px, 20vmin, 116px);
+  height: clamp(64px, 20vmin, 116px);
+  font-size: clamp(28px, 8vmin, 56px);
+}
+
+.tc-arrow-left.active {
+  background: rgba(47, 128, 255, 0.75);
+}
+
+.tc-arrow-right.active {
+  background: rgba(47, 128, 255, 0.75);
+}
+
+/* ------------------------------------------------------- acciones derecha -- */
+
+/* `--tc-reserve` = espacio medido del HUD que hay en la esquina inferior derecha
+   (minimapa/posición en escritorio). Si el HUD se recoloca arriba en táctil,
+   queda a 0 y el bloque ocupa la esquina. */
+.tc-actions {
+  position: absolute;
+  right: calc(var(--tc-reserve, 0px) + var(--tc-pad));
+  bottom: max(var(--tc-pad), env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    'accel accel'
+    'auto object'
+    'brake drift';
+  gap: var(--tc-gap);
+  align-items: end;
+  justify-items: end;
+  pointer-events: none;
+}
+
+.tc-drift {
+  grid-area: drift;
+  width: clamp(72px, 30vmin, 152px);
+  height: clamp(72px, 30vmin, 152px);
+  font-size: clamp(12px, 2.4vmin, 22px);
+  border-color: var(--tc-blue);
+  background: rgba(47, 128, 255, 0.35);
+}
+
+.tc-brake {
+  grid-area: brake;
+  width: clamp(64px, 24vmin, 124px);
+  height: clamp(64px, 24vmin, 124px);
+  font-size: clamp(12px, 2.4vmin, 22px);
+  border-color: var(--tc-red);
+  background: rgba(255, 59, 59, 0.32);
+}
+
+.tc-object {
+  grid-area: object;
+  width: clamp(64px, 22vmin, 114px);
+  height: clamp(64px, 22vmin, 114px);
+  border-radius: 26%;
+  border-color: var(--tc-yellow);
+  background: rgba(255, 210, 63, 0.28);
+}
+
+.tc-object svg {
+  width: 62%;
+  height: 62%;
+}
+
+.tc-object.active {
+  background: rgba(255, 210, 63, 0.9);
+  color: #201800;
+}
+
+.tc-accel {
+  grid-area: accel;
+  width: clamp(130px, 48vmin, 260px);
+  height: clamp(64px, 18vmin, 100px);
+  border-radius: 999px;
+  font-size: clamp(16px, 3.4vmin, 30px);
+  letter-spacing: 2px;
+  border-color: var(--tc-green);
+  background: rgba(53, 208, 115, 0.35);
+}
+
+.tc-accel.hidden {
+  display: none;
+}
+
+.tc-auto {
+  grid-area: auto;
+  width: clamp(58px, 17vmin, 104px);
+  height: clamp(30px, 9vmin, 54px);
+  border-radius: 999px;
+  font-size: clamp(10px, 1.9vmin, 16px);
+  letter-spacing: 1.5px;
+  opacity: 0.55;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.tc-auto.on {
+  opacity: 0.85;
+  border-color: var(--tc-green);
+  color: var(--tc-green);
+  box-shadow: 0 0 12px rgba(53, 208, 115, 0.4), inset 0 0 12px rgba(0, 0, 0, 0.45);
+}

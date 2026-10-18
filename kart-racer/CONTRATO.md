@@ -335,3 +335,51 @@ RenderPipeline {
 ### 9.3 Kart y piloto (enmienda §4.2)
 - Modelos orgánicos: geometrías suavizadas (normales suaves, Lathe/Capsule/esferas deformadas con ruido, perfiles curvos), materiales PBR (pintura de kart con clearcoat, goma, metal cromado, pelaje/piel con sheen), sin aristas facetadas visibles en personajes.
 - Expresividad: cada piloto tiene cara con ojos (párpados que parpadean, pupilas que miran hacia la dirección de giro), cejas y boca deformables. Expresiones obligatorias según estado: `neutral`, `determinado` (derrape/turbo), `eufórico` (mini-turbo nivel 3, adelantar, celebrate), `sorprendido` (golpe recibido), `mareado` (spin), `enfadado` (tras ser golpeado, 1.5 s), `contento` (en el aire / caja de objeto). API añadida: `kart.setExpression(name: string, duration?: number): void` y `kart.expression: string` (lectura).
+
+## 10. Tanda 4 — Ventajas por personaje, 3 pilotos nuevos y Android (enmienda)
+
+### 10.1 Personajes (`src/shared/characters.js`) — total 11
+Se añaden 3 pilotos HUMANO/ANIMAL inspirados en arquetipos clásicos del género (héroe mecánico bigotudo, guerrero de artes marciales con aura de energía, marsupial salvaje y travieso). **Diseño 100 % original**: no usar nombres, emblemas, colores-firma ni vestuario reconocible de personajes existentes. Prohibido: gorra roja con letra, peto azul con botones amarillos, traje naranja con kanji, pelo negro en punta clásico, bandicoot naranja con vaqueros. `species` se amplía con `'mechanic' | 'fighter' | 'numbat'`.
+
+| id | name | species | spd | acc | hdl | wgt | clase | Diseño obligatorio |
+|---|---|---|---|---|---|---|---|---|
+| max | Max Tuerca | mechanic | 3 | 4 | 3 | 3 | medium | Humano rechoncho y simpático, gran bigote castaño rizado, nariz redonda, gorra plana VERDE AZULADA con una tuerca dorada bordada, mono de trabajo MOSTAZA con bolsillos y una llave inglesa en el cinturón, guantes blancos. Kart verde azulado. |
+| kenzo | Kenzo Ráfaga | fighter | 4 | 4 | 2 | 3 | medium | Joven luchador, pelo en punta exagerado de color PLATA con mechas turquesa, cinta en la frente roja, kimono de entrenamiento MORADO con cinturón negro y un emblema propio de rayo-espiral (no letras), muñequeras. Aura turquesa al turbo. Kart morado. |
+| zuri | Zuri | numbat | 3 | 5 | 4 | 1 | light | Numbat (marsupial australiano real, distinto del bandicoot) de pelaje ROJIZO con rayas blancas en el lomo, hocico fino y largo, cola esponjosa erizada, gafas de aviador sobre la frente, chaleco verde lima y zapatillas. Kart lima. |
+
+### 10.2 Ventaja (perk) por personaje — campo nuevo
+Cada personaje lleva `perk: { id, name, description }` (description en español, ≤ 70 caracteres, la muestra la UI). Valores fijos y quién los implementa:
+
+| id personaje | perk.id | perk.name | efecto exacto | implementa |
+|---|---|---|---|---|
+| rayo | astucia | Astucia | La carga del derrape sube un 25 % más rápido | kart |
+| bolt | blindaje | Blindaje | Los golpes le dejan girando un 40 % menos tiempo | kart |
+| pipa | salto_rana | Salto de rana | Saltos de rampa ×1.3 de altura y turbo 0.5 s al aterrizar | kart |
+| nieve | patinador | Patinador | La penalización fuera de pista se reduce a la mitad | kart |
+| bruno | empujon | Empujón | En choques empuja ×2 y él apenas se mueve | core |
+| mishi | siete_vidas | Siete vidas | Ignora el primer golpe de cada vuelta | kart (escucha LAP del bus) |
+| rex | rugido | Rugido | Los turbos de objetos duran un 35 % más | kart (applyBoost con source 'item') |
+| luna | salida | Salida bala | Turbo de 1.5 s automático al dar la salida | core (en RACE_START) |
+| max | mecanico | Mecánico | Ruleta en 0.9 s y objetos como si fuera 2 puestos peor | items |
+| kenzo | aura | Aura de energía | El mini-turbo de nivel 3 dura un 50 % más | kart (+ fx: aura turquesa) |
+| zuri | torbellino | Torbellino | Con turbo, los rivales que toca salen girando | core (colisiones) + fx |
+
+Helper en shared: `export function hasPerk(kart, perkId): boolean` (`kart.character.perk.id === perkId`).
+
+### 10.3 Controles táctiles — nuevo bloque `src/touch/index.js`
+```js
+export function createTouchControls(root: HTMLElement): TouchControls
+TouchControls {
+  enabled: boolean,                  // true si el dispositivo es táctil ('ontouchstart' in window || navigator.maxTouchPoints > 0) o ?touch=1
+  state: { throttle, brake, steer /*-1..1*/, drift: boolean },
+  consumeUseItem(): boolean,         // flanco del botón de objeto
+  consumePause(): boolean,           // flanco del botón de pausa
+  show(): void, hide(): void,        // core muestra en carrera y oculta en menús
+  dispose(): void,
+}
+```
+Diseño: mitad izquierda = volante virtual (arrastrar horizontal; o botones ◀ ▶ grandes), derecha: botón ACELERAR grande (por defecto acelerador automático activado; botón FRENO), botón DERRAPE, botón OBJETO, pausa arriba. Multitouch, botones ≥ 64 px, semitransparentes, sin bloquear el HUD.
+Core fusiona: `input` de teclado/mando + `touch.state` (máximo de cada valor).
+
+### 10.4 Android (APK) — nuevo bloque `android`
+Capacitor (`@capacitor/core`, `@capacitor/cli`, `@capacitor/android`, `@capacitor/screen-orientation` opcional), appId `com.rallyrelampago.game`, appName `Rally Relámpago`, orientación forzada horizontal, pantalla completa inmersiva, icono procedural generado por script (PNG de rayo sobre fondo). Salida: `kart-racer/apk/rally-relampago-debug.apk` (firma debug) + script reproducible `scripts/build-apk.sh`. En móvil, calidad por defecto `low` (o `high` si el dispositivo rinde), y `devicePixelRatio` máx. 1.5.

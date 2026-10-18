@@ -112,13 +112,14 @@ function sampleArc(g, idx, distance) {
   return _s;
 }
 
-// Cambio de rumbo (rad, con signo) entre el punto actual y `distance` m más allá.
-function curveAngleSigned(g, idx, distance) {
-  sampleArc(g, idx, 0.001);
+// Curvatura con signo (rad/m) entre el índice y `distance` m más allá.
+function curvatureAt(g, idx, distance) {
+  sampleArc(g, idx, 0.5);
   const h0 = Math.atan2(_s.tx, _s.tz);
-  sampleArc(g, idx, distance);
+  const d = Math.max(1, distance);
+  sampleArc(g, idx, d);
   const h1 = Math.atan2(_s.tx, _s.tz);
-  return wrapPi(h1 - h0);
+  return wrapPi(h1 - h0) / Math.max(0.5, d - 0.5);
 }
 
 function isArray(v) {
@@ -129,7 +130,22 @@ export function createAIDriver(kart, track, opts = {}) {
   const skill = clamp(typeof opts.skill === 'number' ? opts.skill : 0.7, 0, 1);
   const g = getLineGeom(track);
   const roadHalf = ((track && track.roadWidth) || ROAD_WIDTH) / 2;
-  const maxOffset = 0.25 * roadHalf; // ±25 % del medio ancho
+  const maxOffset = 0.12 * roadHalf; // ±12 % del medio ancho (personalidad suave)
+  const driveLimit = roadHalf - Math.min(3.0, roadHalf * 0.32); // margen al borde
+
+  // Lateral de la línea de carrera respecto al centro (una vez por circuito).
+  if (!g.lat) {
+    const lat = new Float64Array(g.N);
+    for (let i = 0; i < g.N; i++) {
+      try {
+        const pr = track.projectToTrack(g.pts[i]);
+        lat[i] = pr && typeof pr.lateral === 'number' ? pr.lateral : 0;
+      } catch (err) {
+        lat[i] = 0;
+      }
+    }
+    g.lat = lat;
+  }
 
   // --- Personalidad determinista por personaje ---
   let hseed = 2166136261;
@@ -162,6 +178,7 @@ export function createAIDriver(kart, track, opts = {}) {
   let itemUsed = false;
   let drifting = false;
   let driftCooldown = 0;
+  let driftCommit = 0;
   let stuckTimer = 0;
   let episode = 0;
   let recovering = 0;
@@ -171,7 +188,15 @@ export function createAIDriver(kart, track, opts = {}) {
   let crossings = 0;
   let finishTime = null;
 
-  const stats = { skill, respawns: 0, stuckTime: 0, laps: 0, finishTime: null };
+  const stats = {
+    skill,
+    respawns: 0,
+    stuckTime: 0,
+    laps: 0,
+    finishTime: null,
+    itemsUsed: 0,
+    maxDriftLevel: 0,
+  };
   kart.aiStats = stats;
 
   const controls = kart.controls;
@@ -362,10 +387,12 @@ export function createAIDriver(kart, track, opts = {}) {
       return;
     }
 
-    // --- Anticipación y desplazamiento personal ---
-    const la = clamp(8 + spd * 0.6 + skill * 2, 8, 25);
-    let personal = baseOffset + Math.sin(clock * 0.13 + phase) * maxOffset * 0.5;
-    personal = clamp(personal, -maxOffset, maxOffset);
+    // --- Desplazamiento lateral personal (suave) ---
+    const personal = clamp(
+      baseOffset + Math.sin(clock * 0.11 + phase) * maxOffset * 0.6,
+      -maxOffset,
+      maxOffset
+    );
 
     // --- Evitación de rivales y cáscaras ---
     const fx = Math.sin(kart.heading);
@@ -421,44 +448,34 @@ export function createAIDriver(kart, track, opts = {}) {
       }
     }
 
-    let offset = clamp(personal + avoid, -maxOffset * 1.6, maxOffset * 1.6);
-
-    // --- Punto objetivo (pure pursuit) ---
+    // --- Punto de referencia: tangente por delante + error lateral ---
+    const la = clamp(7 + spd * 0.3, 7, 16);
     sampleArc(g, lineIdx, la);
-    let goalX = _s.px;
-    let goalZ = _s.pz;
-    const Lx = _s.tz;
-    const Lz = -_s.tx;
-    goalX += Lx * offset;
-    goalZ += Lz * offset;
+    const aheadIdx = _s.index;
+    const thAhead = Math.atan2(_s.tx, _s.tz);
 
-    // --- Muro: reorientar hacia el centro ---
-    if (surface === 'wall') {
-      const c = (proj && proj.center) || null;
-      const cxx = c && typeof c.x === 'number' ? c.x : kart.position.x;
-      const czz = c && typeof c.z === 'number' ? c.z : kart.position.z;
-      const tg = (proj && proj.tangent) || null;
-      const tgx = tg && typeof tg.x === 'number' ? tg.x : fx;
-      const tgz = tg && typeof tg.z === 'number' ? tg.z : fz;
-      const wn = proj && proj.wallNormal;
-      const wnx = wn && typeof wn.x === 'number' ? wn.x : 0;
-      const wnz = wn && typeof wn.z === 'number' ? wn.z : 0;
-      goalX = cxx + tgx * 6 + wnx * 5;
-      goalZ = czz + tgz * 6 + wnz * 5;
-      offset = 0;
-    }
+    const lateral = proj && typeof proj.lateral === 'number' ? proj.lateral : 0;
+    const onWall = surface === 'wall';
+    const latRef = (g.lat[aheadIdx] || 0) * 0.85;
+    avoid = clamp(avoid, -1.5, 1.5);
+    const latDes = onWall ? 0 : clamp(latRef + personal + avoid, -driveLimit, driveLimit);
 
-    // --- Dirección (pure pursuit) ---
-    const desired = Math.atan2(goalX - kart.position.x, goalZ - kart.position.z);
-    const diff = wrapPi(desired - kart.heading);
-    let gain = 1.5 + skill * 1.0;
-    gain *= 1 - 0.25 * Math.min(1, spd / maxSpeed);
-    const steer = clamp(diff * gain, -1, 1);
+    // --- Dirección: feed-forward de curvatura + corrección de error lateral ---
+    const headErr = wrapPi(thAhead - kart.heading);
+    const latErr = latDes - lateral;
+    const sgn = kart.speed >= 0 ? 1 : -1;
+    let steer = clamp(
+      headErr * (1.2 + skill * 0.6) + clamp(latErr * 0.12, -0.8, 0.8) * sgn,
+      -1,
+      1
+    );
 
-    // --- Curvatura (ángulo entre tangentes a 15 m y 40 m) ---
-    const a15 = curveAngleSigned(g, lineIdx, 15);
-    const a40 = curveAngleSigned(g, lineIdx, 40);
-    const curve = Math.max(Math.abs(a15), Math.abs(a40) * 0.8);
+    // --- Curvatura cercana (ángulo, rad) ---
+    const c15 = curvatureAt(g, lineIdx, 15);
+    const c8 = curvatureAt(g, lineIdx, 8);
+    const c30 = curvatureAt(g, lineIdx, 30);
+    const c45 = curvatureAt(g, lineIdx, 45);
+    const absCurve = Math.max(Math.abs(c15) * 15, Math.abs(c8) * 8);
 
     // --- Rubber-banding suave respecto al jugador ---
     let rubber = 0;
@@ -474,57 +491,100 @@ export function createAIDriver(kart, track, opts = {}) {
       }
     }
 
-    // --- Velocidad objetivo ---
-    let allow = 1 - curve * (1.5 - skill * 0.6);
-    allow *= 1 + rubber;
-    allow = clamp(allow, 0.2, 1.1);
-    let targetSpeed = maxSpeed * allow * (0.95 + skill * 0.05);
-    if (surface === 'wall') targetSpeed = Math.min(targetSpeed, maxSpeed * 0.4);
+    // --- Velocidad objetivo: frenada anticipada por curvatura próxima ---
+    const LAT_ACC = 42; // m/s² de agarre lateral disponible
+    const BRAKE_DECEL = 15; // m/s² de frenada
+    let vTarget = maxSpeed;
+    for (let k = 0; k < 6; k++) {
+      const d = [8, 14, 22, 34, 50, 70][k];
+      const c = Math.abs(curvatureAt(g, lineIdx, d));
+      const R = c > 1e-4 ? 1 / c : 1e6;
+      const vc = Math.min(maxSpeed, Math.sqrt(LAT_ACC * R));
+      const vNow = Math.sqrt(vc * vc + 2 * BRAKE_DECEL * d);
+      if (vNow < vTarget) vTarget = vNow;
+    }
+    let allow = (vTarget / maxSpeed) * (0.92 + skill * 0.08) * (1 + rubber);
+    allow = clamp(allow, 0.18, 1.0);
+    let targetSpeed = maxSpeed * allow;
+    if (onWall) targetSpeed = Math.min(targetSpeed, maxSpeed * 0.4);
 
     let throttle = 0;
     let brake = 0;
     const err = targetSpeed - spd;
     if (err > 0.5) throttle = 1;
-    else if (err > -0.5) throttle = 0.6;
+    else if (err > -1.5) throttle = 0.7;
     else {
       throttle = 0;
-      brake = Math.min(1, -err / 9);
+      brake = Math.min(1, -err / 8);
     }
     if (surface === 'offroad') {
-      throttle = Math.max(throttle, 0.85);
+      throttle = 1;
       brake = 0;
     }
 
-    // --- Derrape ---
+    // --- Derrape: solo en curva clara y bien colocado; cortar si sobre-rota ---
     if (driftCooldown > 0) driftCooldown -= dt;
-    const signed = a40;
-    const absCurve = Math.abs(signed);
-    const driftMin = 0.32 - skill * 0.06;
-    const targetLevel = skill < 0.35 ? 1 : skill < 0.72 ? 2 : 3;
+    const driftMin = 0.5 - skill * 0.1;
+    const targetLevel = skill < 0.4 ? 1 : 2;
     let wantDrift = false;
 
     if (drifting) {
-      if (absCurve < driftMin * 0.55 || spd < 7 || surface === 'wall') {
+      if (driftCommit > 0) driftCommit -= dt;
+      const ddir = (kart.state && kart.state.driftDir) || (c15 >= 0 ? 1 : -1);
+      const over = wrapPi(thAhead - kart.heading) * ddir;
+      const offDir =
+        (c15 * ddir < -0.03 && c30 * ddir < -0.02) || absCurve < driftMin * 0.45;
+      const hardEnd =
+        onWall || spd < 6 || offDir || Math.abs(lateral) > driveLimit + 1.5;
+      const softEnd =
+        driftCommit <= 0 &&
+        (absCurve < driftMin * 0.7 || over < -0.2 || Math.abs(latErr) > 2.8);
+      if (hardEnd || softEnd) {
         drifting = false;
-        driftCooldown = 0.25;
+        driftCooldown = 6 + (1 - skill) * 6 + rnd * 4;
+        stats.eWall = (stats.eWall || 0) + (onWall ? 1 : 0);
+        stats.eSpd = (stats.eSpd || 0) + (spd < 6 ? 1 : 0);
+        stats.eOff = (stats.eOff || 0) + (offDir ? 1 : 0);
+        stats.eLat = (stats.eLat || 0) + (Math.abs(lateral) > driveLimit + 1.5 ? 1 : 0);
+        stats.eSoft = (stats.eSoft || 0) + (softEnd ? 1 : 0);
       } else if (kart.state && kart.state.driftLevel >= targetLevel) {
         drifting = false;
-        wantDrift = false;
-        driftCooldown = 0.35; // suelta para cobrar el mini-turbo
+        driftCooldown = 8 + (1 - skill) * 6 + rnd * 4; // suelta para cobrar el mini-turbo
+        stats.eLevel = (stats.eLevel || 0) + 1;
+      } else if (!(kart.state && kart.state.drifting)) {
+        // Aún arrancando (saltito): esterzo decidido para que el kart enganche.
+        wantDrift = true;
+        steer = clamp(ddir * 0.9 + clamp(latErr * 0.05, -0.3, 0.3) * sgn, -1, 1);
       } else {
         wantDrift = true;
+        // Dirige el derrape para que su giro siga la curvatura de la pista:
+        // mag = 1.35 + inward*1.2 - outward*0.7 (rad/s). Elegimos inward/outward.
+        const yawMag = Math.abs(c15) * spd;
+        let amt;
+        if (yawMag >= 1.35) amt = Math.min(1, (yawMag - 1.35) / 1.2);
+        else amt = -Math.min(1, (1.35 - yawMag) / 0.7);
+        amt = clamp(amt + 0.25, -0.8, 1); // carga algo más rápido el mini-turbo
+        steer = clamp(ddir * amt + clamp(latErr * 0.06, -0.35, 0.35) * sgn, -1, 1);
       }
     } else if (
-      skill > 0.2 &&
-      absCurve > driftMin &&
-      spd > 11 &&
+      skill > 0.55 &&
       driftCooldown <= 0 &&
-      surface !== 'wall' &&
+      !onWall &&
+      spd > 14 &&
+      surface === 'road' &&
+      Math.abs(latErr) < 2.0 &&
+      absCurve > driftMin &&
+      c15 * c30 > 0 &&
+      c15 * c45 > 0 &&
+      Math.abs(c30) * 30 > driftMin * 0.7 &&
       !(kart.state && kart.state.airborne)
     ) {
       drifting = true;
       wantDrift = true;
+      driftCommit = 2.2;
+      stats.driftAttempts = (stats.driftAttempts || 0) + 1;
     }
+    if (wantDrift) stats.driftHoldFrames = (stats.driftHoldFrames || 0) + 1;
 
     // --- Objetos ---
     let held = null;
@@ -548,7 +608,7 @@ export function createAIDriver(kart, track, opts = {}) {
     let useItem = false;
     if (held && !itemUsed) {
       itemHold += dt;
-      if (itemHold >= 0.15 && shouldUseItem(held, ctx, curve, spd)) {
+      if (itemHold >= 0.15 && shouldUseItem(held, ctx, absCurve, spd)) {
         useItem = true;
         itemUsed = true;
       }
@@ -561,7 +621,12 @@ export function createAIDriver(kart, track, opts = {}) {
     controls.drift = wantDrift;
     controls.useItem = useItem;
 
-    void offset;
+    if (kart.state) {
+      if (kart.state.driftLevel > stats.maxDriftLevel) stats.maxDriftLevel = kart.state.driftLevel;
+      if (kart.state.driftLevel > 0) stats.driftTime = (stats.driftTime || 0) + dt;
+    }
+    if (useItem) stats.itemsUsed += 1;
+
     void UP_Y;
   }
 

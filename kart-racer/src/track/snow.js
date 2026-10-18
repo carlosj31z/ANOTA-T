@@ -1,156 +1,192 @@
-// BLOQUE 1 — Circuito "Cumbre Helada": nieve, pinos, montañas, hielo, nieve cayendo, aurora.
+// BLOQUE 1 — Circuito "Cumbre Helada": atardecer frío, pinos nevados, rocas,
+// cordilleras, lago helado, témpanos, nieve cayendo y aurora sutil.
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { scatterPositions, MeshBuilder, addGroundQuad } from './builder.js';
+import { mergeGeo } from './procgen.js';
+import { buildPine, buildGrassTuft, scatter, instantiate, barkMaterial } from './vegetation.js';
+import { buildRock, rockMaterial, buildMountainCone, mountainMaterial } from './rocks.js';
+import { createWaterMaterial } from './water.js';
+import { buildSnowfall, buildTracksideFlags } from './props.js';
+
+export const SNOW_AMBIENT = {
+  seed: 4242,
+  background: 0x2b3a6a,
+  fogColor: 0xdbe7f4,
+  fogDensity: 0.0011,
+  sky: {
+    elevation: 7,
+    azimuth: 300,
+    turbidity: 3.2,
+    rayleigh: 2.4,
+    mieCoefficient: 0.006,
+    mieDirectionalG: 0.8,
+    sun: { color: 0xffdbe6, intensity: 2.4 },
+    hemi: { sky: 0xcfe2ff, ground: 0x9fb0c8, intensity: 0.85 },
+    sunVisual: '#ffe6ee',
+    sunVisualSize: 34,
+    sunVisualOpacity: 0.8,
+    shadowRadius: 150,
+  },
+  terrain: {
+    detailNormal: 'snow',
+    detailRepeat: 90,
+    amp: 22,
+    fineAmp: 4,
+    flattenIn: 26,
+    flattenOut: 150,
+    roughness: 0.72,
+    normalScale: 0.7,
+    color: (x, z, h, rel, c) => {
+      const rock = Math.min(1, Math.max(0, (rel - 9) / 16));
+      const ice = Math.min(1, Math.max(0, (4 - rel) / 6));
+      let r = 0.93, g = 0.96, b = 1.0;
+      // hielo azulado en zonas bajas
+      r = r * (1 - ice) + 0.62 * ice;
+      g = g * (1 - ice) + 0.79 * ice;
+      b = b * (1 - ice) + 0.9 * ice;
+      // roca en pendientes altas
+      r = r * (1 - rock) + 0.42 * rock;
+      g = g * (1 - rock) + 0.46 * rock;
+      b = b * (1 - rock) + 0.5 * rock;
+      c.setRGB(r, g, b);
+    },
+  },
+};
 
 export function buildSnow(ctx) {
-  const { rnd, samples, half, band, isOnTrack, sampleAt, centroid } = ctx;
+  const { rnd, samples, half, heightAt, centroid, sampleSpacing } = ctx;
   const group = new THREE.Group();
+  group.name = 'snow-props';
   const updaters = [];
-  const dummy = new THREE.Object3D();
-  const col = new THREE.Color();
-  const blocksRoad = (m) => (x, z) => isOnTrack(x, z, m);
 
   // -------------------- Pinos nevados --------------------
-  const trunkGeo = new THREE.CylinderGeometry(0.28, 0.4, 1.6, 6).translate(0, 0.8, 0);
-  const greenGeo = mergeGeometries([
-    new THREE.ConeGeometry(2.0, 3.0, 7).translate(0, 2.4, 0),
-    new THREE.ConeGeometry(1.5, 2.6, 7).translate(0, 4.0, 0),
-    new THREE.ConeGeometry(1.0, 2.2, 7).translate(0, 5.5, 0),
-  ]);
-  const snowGeo = mergeGeometries([
-    new THREE.ConeGeometry(1.55, 1.0, 7).translate(0, 3.7, 0),
-    new THREE.ConeGeometry(1.05, 0.9, 7).translate(0, 5.2, 0),
-    new THREE.ConeGeometry(0.7, 0.8, 7).translate(0, 6.5, 0),
-  ]);
-  const pinePos = scatterPositions(rnd, 180, { minR: 30, maxR: 340, isOnTrack: blocksRoad(6) });
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5a4632 });
-  const greenMat = new THREE.MeshLambertMaterial({ color: 0x2f6b45, flatShading: true });
-  const snowCapMat = new THREE.MeshLambertMaterial({ color: 0xf4f8fb, flatShading: true });
-  const pines = new THREE.InstancedMesh(greenGeo, greenMat, pinePos.length);
-  const pinesSnow = new THREE.InstancedMesh(snowGeo, snowCapMat, pinePos.length);
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, pinePos.length);
-  pines.castShadow = true;
-  for (let i = 0; i < pinePos.length; i++) {
-    const p = pinePos[i];
-    const s = 0.85 + rnd() * 0.9;
-    dummy.position.set(p.x, 0, p.z);
-    dummy.rotation.set(0, p.a, 0);
-    dummy.scale.set(s, 0.9 + rnd() * 0.6, s);
-    dummy.updateMatrix();
-    pines.setMatrixAt(i, dummy.matrix);
-    pinesSnow.setMatrixAt(i, dummy.matrix);
-    trunks.setMatrixAt(i, dummy.matrix);
+  const trunkMat = barkMaterial();
+  const needleMat = new THREE.MeshStandardMaterial({ color: 0x2f6b45, roughness: 0.9, metalness: 0.0 });
+  const snowCapMat = new THREE.MeshStandardMaterial({ color: 0xf4f8fb, roughness: 0.55, metalness: 0.0, envMapIntensity: 1.1 });
+  const pineSpecs = [buildPine(4, { height: 9, radius: 2.2 }), buildPine(18, { height: 6.5, radius: 1.7 })];
+  const pinePos = scatter(ctx, rnd, 190, { minR: 28, maxR: 340, clearance: 7, flatness: 10 });
+  for (let v = 0; v < pineSpecs.length; v++) {
+    const spec = pineSpecs[v];
+    const list = pinePos.filter((_, i) => i % pineSpecs.length === v);
+    if (!list.length) continue;
+    group.add(instantiate(spec.trunk, trunkMat, list, { scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
+    group.add(instantiate(spec.needles, needleMat, list, { scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
+    group.add(instantiate(spec.snow, snowCapMat, list, { castShadow: false, scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
   }
-  group.add(pines, pinesSnow, trunks);
 
-  // -------------------- Montañas al fondo --------------------
-  const mountainGeo = new THREE.ConeGeometry(1, 1, 6);
-  const mountainMat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
-  const mountains = new THREE.InstancedMesh(mountainGeo, mountainMat, 22);
-  mountains.castShadow = false;
-  for (let i = 0; i < 22; i++) {
-    const a = rnd() * Math.PI * 2;
-    const r = 900 + rnd() * 350;
-    const s = 180 + rnd() * 220;
-    dummy.position.set(Math.cos(a) * r, s * 0.5 - 20, Math.sin(a) * r);
+  // -------------------- Rocas --------------------
+  const rMat = rockMaterial();
+  const rockSpecs = [buildRock(6, { detail: 2 }), buildRock(22, { detail: 1 })];
+  const rockPos = scatter(ctx, rnd, 110, { minR: 24, maxR: 360, clearance: 5 });
+  const rockTones = [0x8b98a6, 0x6f7c8a, 0xa4b0bd, 0x5f6b78];
+  for (let v = 0; v < rockSpecs.length; v++) {
+    const list = rockPos.filter((_, i) => i % rockSpecs.length === v);
+    if (!list.length) continue;
+    group.add(
+      instantiate(rockSpecs[v], rMat, list, {
+        scaleMin: 0.9,
+        scaleMax: 4,
+        yScaleVar: 0.5,
+        receiveShadow: true,
+        colors: () => rockTones[Math.floor(rnd() * rockTones.length)],
+      })
+    );
+  }
+
+  // -------------------- Cordilleras lejanas --------------------
+  const coneGeo = buildMountainCone(9, { rock: 0x5f6b78, rockTop: 0x8a95a2, snow: 0xf6fbff, snowLine: 0.48 });
+  const mountains = new THREE.InstancedMesh(coneGeo, mountainMaterial(), 26);
+  const dummy = new THREE.Object3D();
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2 + rnd() * 0.2;
+    const r = 900 + rnd() * 380;
+    const s = 180 + rnd() * 240;
+    dummy.position.set(centroid.x + Math.cos(a) * r, s * 0.5 - 18, centroid.z + Math.sin(a) * r);
     dummy.rotation.set(0, rnd() * Math.PI, 0);
-    dummy.scale.set(s * (0.7 + rnd() * 0.5), s, s * (0.7 + rnd() * 0.5));
+    dummy.scale.set(s * (0.75 + rnd() * 0.5), s, s * (0.75 + rnd() * 0.5));
     dummy.updateMatrix();
     mountains.setMatrixAt(i, dummy.matrix);
-    mountains.setColorAt(i, col.setHex(rnd() < 0.4 ? 0xdbe7f0 : 0xf6fbff));
   }
-  if (mountains.instanceColor) mountains.instanceColor.needsUpdate = true;
+  mountains.instanceMatrix.needsUpdate = true;
+  mountains.castShadow = false;
+  mountains.frustumCulled = false;
   group.add(mountains);
 
-  // -------------------- Témpanos de hielo en la pista --------------------
-  const iceBuilder = new MeshBuilder();
-  for (let i = 0; i < 26; i++) {
-    const t = rnd();
-    const sa = sampleAt(t);
-    const lat = (rnd() - 0.5) * (half * 1.5);
-    const y = sa.pos.y + 0.02;
-    const cx = sa.pos.x + sa.left.x * lat;
-    const cz = sa.pos.z + sa.left.z * lat;
-    const heading = Math.atan2(sa.tangent.x, sa.tangent.z) + (rnd() - 0.5) * 0.4;
-    addGroundQuad(iceBuilder, cx, y, cz, heading, 1.5 + rnd() * 2.5, 2 + rnd() * 5, 0.0);
-  }
-  const ice = new THREE.Mesh(
-    iceBuilder.geometry(),
-    new THREE.MeshLambertMaterial({ color: 0xaccbe6, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
-  );
-  group.add(ice);
-
-  // -------------------- Túnel/puente de hielo --------------------
-  const tunnelT = 0.5;
-  const ts = sampleAt(tunnelT);
-  const tHeading = Math.atan2(ts.tangent.x, ts.tangent.z);
-  const tunnel = new THREE.Group();
-  const shellMat = new THREE.MeshLambertMaterial({
-    color: 0xbfe0f2,
+  // -------------------- Témpanos en la pista --------------------
+  const iceGeo = new THREE.CylinderGeometry(1, 1, 0.06, 8);
+  const iceMat = new THREE.MeshStandardMaterial({
+    color: 0xaccbe6,
+    roughness: 0.18,
+    metalness: 0.15,
     transparent: true,
-    opacity: 0.55,
-    side: THREE.DoubleSide,
-    flatShading: true,
+    opacity: 0.72,
+    envMapIntensity: 1.2,
   });
-  const shell = new THREE.Mesh(new THREE.CylinderGeometry(13, 13, 30, 18, 1, true, 0, Math.PI), shellMat);
-  shell.rotation.z = Math.PI / 2;
-  shell.rotation.y = Math.PI / 2;
-  tunnel.add(shell);
-  const beamMat = new THREE.MeshLambertMaterial({ color: 0xe8f4fb, flatShading: true });
-  for (let i = -1; i <= 1; i++) {
-    const rib = new THREE.Mesh(new THREE.TorusGeometry(13, 0.6, 6, 16, Math.PI), beamMat);
-    rib.rotation.z = 0;
-    rib.position.y = 0;
-    rib.rotation.y = Math.PI / 2;
-    rib.position.z = i * 12;
-    tunnel.add(rib);
+  const iceList = [];
+  for (let i = 0; i < 34; i++) {
+    const t = rnd();
+    const sa = ctx.sampleAt(t);
+    const lat = (rnd() - 0.5) * (half * 1.5);
+    iceList.push({
+      x: sa.pos.x + sa.left.x * lat,
+      y: sa.pos.y + 0.03,
+      z: sa.pos.z + sa.left.z * lat,
+      a: Math.atan2(sa.tangent.x, sa.tangent.z) + (rnd() - 0.5) * 0.4,
+      s: 0.9 + rnd() * 2.2,
+      yr: rnd(),
+    });
   }
-  tunnel.position.copy(ts.pos);
-  tunnel.rotation.y = tHeading;
-  group.add(tunnel);
+  group.add(instantiate(iceGeo, iceMat, iceList, { castShadow: false, receiveShadow: true, scaleMin: 1, scaleMax: 2.4 }));
+
+  // -------------------- Lago helado --------------------
+  const lakeA = rnd() * Math.PI * 2;
+  const lakeR = 150 + rnd() * 50;
+  const lx = centroid.x + Math.cos(lakeA) * lakeR;
+  const lz = centroid.z + Math.sin(lakeA) * lakeR;
+  const ly = heightAt(lx, lz);
+  const water = createWaterMaterial({
+    seed: 11,
+    deep: 0x1e4a72,
+    shallow: 0x7fb6d6,
+    sky: 0xdbe7f4,
+    sunColor: 0xffe6ee,
+    fogColor: 0xdbe7f4,
+    fogDensity: 0.0011,
+    opacity: 0.9,
+    normalScale: 0.1,
+    flow: 0.012,
+  });
+  const lake = new THREE.Mesh(new THREE.CircleGeometry(42, 44), water.material);
+  lake.rotation.x = -Math.PI / 2;
+  lake.position.set(lx, ly + 0.15, lz);
+  group.add(lake);
+  updaters.push(water.update);
+  // borde de hielo
+  const shoreGeo = new THREE.RingGeometry(42, 50, 44);
+  shoreGeo.rotateX(-Math.PI / 2);
+  const shore = new THREE.Mesh(shoreGeo, new THREE.MeshStandardMaterial({ color: 0xdbe8f2, roughness: 0.6 }));
+  shore.position.set(lx, ly + 0.12, lz);
+  shore.receiveShadow = true;
+  group.add(shore);
+
+  // -------------------- Hierba seca asomando --------------------
+  const dryMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0.0, side: THREE.DoubleSide });
+  const tuft = buildGrassTuft(77, { height: 0.45, rootColor: 0x6b6a4a, tipColor: 0xb8b489, blades: 5 });
+  const dryList = [];
+  for (let i = 0; i < 900; i++) {
+    const s = samples[Math.floor(rnd() * samples.length)];
+    const sign = rnd() < 0.5 ? 1 : -1;
+    const lat = (half + 1.6 + rnd() * 22) * sign;
+    dryList.push({ x: s.pos.x + s.left.x * lat, y: s.pos.y - 0.2, z: s.pos.z + s.left.z * lat, a: rnd() * Math.PI * 2, s: 0.6 + rnd() * 0.7 });
+  }
+  group.add(instantiate(tuft.geo, dryMat, dryList, { castShadow: false, scaleMin: 0.7, scaleMax: 1.4 }));
 
   // -------------------- Nieve cayendo --------------------
-  const SNOW = 1900;
-  const snowGeoPts = new THREE.BufferGeometry();
-  const snowArr = new Float32Array(SNOW * 3);
-  const snowVel = new Float32Array(SNOW);
-  const cx0 = centroid.x;
-  const cz0 = centroid.z;
-  for (let i = 0; i < SNOW; i++) {
-    snowArr[i * 3] = cx0 + (rnd() - 0.5) * 620;
-    snowArr[i * 3 + 1] = rnd() * 150;
-    snowArr[i * 3 + 2] = cz0 + (rnd() - 0.5) * 620;
-    snowVel[i] = 6 + rnd() * 10;
-  }
-  snowGeoPts.setAttribute('position', new THREE.BufferAttribute(snowArr, 3));
-  const snowMat = new THREE.PointsMaterial({
-    color: 0xffffff,
-    size: 0.55,
-    transparent: true,
-    opacity: 0.9,
-    depthWrite: false,
-    sizeAttenuation: true,
-  });
-  const snowPts = new THREE.Points(snowGeoPts, snowMat);
-  snowPts.frustumCulled = false;
-  group.add(snowPts);
-  updaters.push((dt, time) => {
-    for (let i = 0; i < SNOW; i++) {
-      let y = snowArr[i * 3 + 1] - snowVel[i] * dt;
-      snowArr[i * 3] += Math.sin(time * 0.8 + i) * dt * 3;
-      if (y < 0) {
-        y = 150 + rnd() * 20;
-        snowArr[i * 3] = cx0 + (rnd() - 0.5) * 620;
-        snowArr[i * 3 + 2] = cz0 + (rnd() - 0.5) * 620;
-      }
-      snowArr[i * 3 + 1] = y;
-    }
-    snowGeoPts.attributes.position.needsUpdate = true;
-  });
+  const snow = buildSnowfall(centroid.x, centroid.z, 1500, { seed: 21, range: 260, top: 80 });
+  group.add(snow.group);
+  updaters.push(snow.update);
 
-  // -------------------- Aurora boreal (shader) --------------------
+  // -------------------- Aurora boreal --------------------
   const auroraMat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -158,25 +194,19 @@ export function buildSnow(ctx) {
     blending: THREE.AdditiveBlending,
     fog: false,
     uniforms: { uTime: { value: 0 } },
-    vertexShader: `
+    vertexShader: /* glsl */ `
       varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
     `,
-    fragmentShader: `
+    fragmentShader: /* glsl */ `
       varying vec2 vUv;
       uniform float uTime;
       void main() {
-        float bands = 0.0;
-        bands += sin(vUv.x * 18.0 + uTime * 0.6) * 0.5 + 0.5;
+        float bands = sin(vUv.x * 18.0 + uTime * 0.6) * 0.5 + 0.5;
         bands *= sin(vUv.x * 7.0 - uTime * 0.3) * 0.5 + 0.5;
-        float curtain = pow(1.0 - abs(vUv.y - 0.7), 1.6);
-        float a = bands * curtain * 0.5;
-        vec3 c1 = vec3(0.25, 1.0, 0.6);
-        vec3 c2 = vec3(0.5, 0.4, 1.0);
-        vec3 c = mix(c1, c2, vUv.x);
+        float curtain = pow(1.0 - abs(vUv.y - 0.68), 1.6);
+        float a = bands * curtain * 0.32;
+        vec3 c = mix(vec3(0.35, 1.0, 0.7), vec3(0.55, 0.45, 1.0), vUv.x);
         gl_FragColor = vec4(c, a);
       }
     `,
@@ -189,37 +219,21 @@ export function buildSnow(ctx) {
     auroraMat.uniforms.uTime.value = time;
   });
 
-  const ambient = {
-    background: 0x2b3a6a,
-    skyStops: [
-      [0, '#141a3a'],
-      [0.35, '#2c3f74'],
-      [0.62, '#5568a8'],
-      [0.82, '#9fb2d8'],
-      [1, '#e6eef8'],
-    ],
-    fog: 0xdfe9f4,
-    fogNear: 180,
-    fogFar: 1150,
-    terrainBase: '#eef4fa',
-    terrainLight: '#ffffff',
-    terrainDark: '#cdd9e6',
-    sunColor: 0xeaf2ff,
-    sunIntensity: 1.9,
-    hemiSky: 0xcfe2ff,
-    hemiGround: 0x8fa3bd,
-    hemiIntensity: 1.05,
-    sunDir: [-0.4, 0.65, 0.55],
-    sunVisual: '#eef4ff',
-    terrainColor: (x, z, h) => {
-      const t = Math.min(1, Math.max(0, h / 30));
-      return col.setRGB(0.9 - t * 0.18, 0.93 - t * 0.12, 0.98 - t * 0.05);
-    },
-  };
+  // -------------------- Banderas --------------------
+  for (const side of [1, -1]) {
+    const flags = buildTracksideFlags(samples, {
+      half,
+      sideSign: side,
+      spacing: 18,
+      sampleSpacing,
+      colors: [0x2f80ff, 0xffffff, 0x6fb7ff, 0xffd23f],
+    });
+    group.add(flags.group);
+  }
 
   function update(dt, time) {
     for (const u of updaters) u(dt, time);
   }
 
-  return { group, update, ambient };
+  return { group, update };
 }

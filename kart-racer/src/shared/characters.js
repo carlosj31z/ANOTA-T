@@ -1,5 +1,6 @@
-// 8 personajes originales. Contrato §2.
+// 11 personajes originales. Contrato §2 y §10.1-10.2.
 // Colores vivos y distinguibles; stats enteros 1..5.
+// Orden: los 8 originales primero, luego max, kenzo, zuri.
 
 export const CHARACTERS = [
   {
@@ -9,6 +10,8 @@ export const CHARACTERS = [
     colors: { body: 0xff8c1a, accent: 0xffffff, kart: 0xff3b3b, kartAccent: 0xffd23f },
     stats: { speed: 3, accel: 3, handling: 3, weight: 3 },
     weightClass: 'medium',
+    perk: { id: 'astucia', name: 'Astucia', description: 'La carga del derrape sube un 25 % más rápido' },
+    look: { furColor: 0xff8c1a, bellyColor: 0xfff3e0, earColor: 0xff8c1a, noseColor: 0x2b1a10 },
   },
   {
     id: 'bolt',
@@ -17,6 +20,8 @@ export const CHARACTERS = [
     colors: { body: 0x9aa7b5, accent: 0x2f80ff, kart: 0x2f80ff, kartAccent: 0x00e5ff },
     stats: { speed: 5, accel: 2, handling: 2, weight: 5 },
     weightClass: 'heavy',
+    perk: { id: 'blindaje', name: 'Blindaje', description: 'Los golpes le dejan girando un 40 % menos tiempo' },
+    look: { metalColor: 0x9aa7b5, eyeColor: 0x00e5ff, visorColor: 0x2f80ff, trimColor: 0xffd23f },
   },
   {
     id: 'pipa',
@@ -25,6 +30,8 @@ export const CHARACTERS = [
     colors: { body: 0x59d94a, accent: 0xfff176, kart: 0x39c26a, kartAccent: 0xfff176 },
     stats: { speed: 2, accel: 5, handling: 4, weight: 1 },
     weightClass: 'light',
+    perk: { id: 'salto_rana', name: 'Salto de rana', description: 'Saltos de rampa ×1.3 de altura y turbo 0.5 s al aterrizar' },
+    look: { skinColor: 0x59d94a, bellyColor: 0xfff176, eyeColor: 0x1a1a1a, cheekColor: 0xff8c9e },
   },
   {
     id: 'nieve',
@@ -33,6 +40,8 @@ export const CHARACTERS = [
     colors: { body: 0x2b3a55, accent: 0xffffff, kart: 0x2f80ff, kartAccent: 0xffffff },
     stats: { speed: 3, accel: 3, handling: 5, weight: 2 },
     weightClass: 'light',
+    perk: { id: 'patinador', name: 'Patinador', description: 'La penalización fuera de pista se reduce a la mitad' },
+    look: { backColor: 0x2b3a55, bellyColor: 0xffffff, beakColor: 0xff9a1f, scarfColor: 0xff3b3b },
   },
   {
     id: 'bruno',
@@ -41,6 +50,8 @@ export const CHARACTERS = [
     colors: { body: 0x8b5a2b, accent: 0xf0d9b5, kart: 0xb06a2c, kartAccent: 0xf0d9b5 },
     stats: { speed: 4, accel: 2, handling: 2, weight: 5 },
     weightClass: 'heavy',
+    perk: { id: 'empujon', name: 'Empujón', description: 'En choques empuja ×2 y él apenas se mueve' },
+    look: { furColor: 0x8b5a2b, muzzleColor: 0xf0d9b5, noseColor: 0x2b1a10, bandanaColor: 0xff3b3b },
   },
   {
     id: 'mishi',
@@ -49,6 +60,8 @@ export const CHARACTERS = [
     colors: { body: 0xf2b6d0, accent: 0xffffff, kart: 0xc04bff, kartAccent: 0xffd23f },
     stats: { speed: 2, accel: 4, handling: 5, weight: 1 },
     weightClass: 'light',
+    perk: { id: 'siete_vidas', name: 'Siete vidas', description: 'Ignora el primer golpe de cada vuelta' },
+    look: { furColor: 0xf2b6d0, bellyColor: 0xffffff, eyeColor: 0x1f7a8c, bowColor: 0xff3b3b },
   },
   {
     id: 'rex',
@@ -57,6 +70,8 @@ export const CHARACTERS = [
     colors: { body: 0x2fae5f, accent: 0xffd23f, kart: 0x1f8f4a, kartAccent: 0xffd23f },
     stats: { speed: 5, accel: 1, handling: 3, weight: 4 },
     weightClass: 'heavy',
+    perk: { id: 'rugido', name: 'Rugido', description: 'Los turbos de objetos duran un 35 % más' },
+    look: { skinColor: 0x2fae5f, bellyColor: 0xdff5c8, spikeColor: 0xffd23f, eyeColor: 0x1a1a1a },
   },
   {
     id: 'luna',
@@ -65,5 +80,71 @@ export const CHARACTERS = [
     colors: { body: 0xf0f0f0, accent: 0xffb6c1, kart: 0xff9a1f, kartAccent: 0xff3b3b },
     stats: { speed: 3, accel: 4, handling: 4, weight: 2 },
     weightClass: 'medium',
+    perk: { id: 'salida', name: 'Salida bala', description: 'Turbo de 1.5 s automático al dar la salida' },
+    look: { furColor: 0xf0f0f0, earInnerColor: 0xffb6c1, noseColor: 0xff8c9e, goggleColor: 0x3ab0ff },
+  },
+  {
+    id: 'max',
+    name: 'Max Tuerca',
+    species: 'mechanic',
+    colors: { body: 0xf1c39a, accent: 0xd9a521, kart: 0x1f9e8f, kartAccent: 0xffd23f },
+    stats: { speed: 3, accel: 4, handling: 3, weight: 3 },
+    weightClass: 'medium',
+    perk: { id: 'mecanico', name: 'Mecánico', description: 'Ruleta en 0.9 s y objetos como si fuera 2 puestos peor' },
+    look: {
+      skinColor: 0xf1c39a,
+      mustacheColor: 0x6b3f1d,
+      noseColor: 0xe08a6a,
+      capColor: 0x2f9e8f,
+      capEmblemColor: 0xffd23f,
+      outfitColor: 0xd9a521,
+      pocketColor: 0xb8821a,
+      beltColor: 0x4a3520,
+      wrenchColor: 0xc9d3dd,
+      gloveColor: 0xffffff,
+    },
+  },
+  {
+    id: 'kenzo',
+    name: 'Kenzo Ráfaga',
+    species: 'fighter',
+    colors: { body: 0xf1c9a0, accent: 0x28e0d0, kart: 0x8a3ffb, kartAccent: 0xc9d3dd },
+    stats: { speed: 4, accel: 4, handling: 2, weight: 3 },
+    weightClass: 'medium',
+    perk: { id: 'aura', name: 'Aura de energía', description: 'El mini-turbo de nivel 3 dura un 50 % más' },
+    look: {
+      skinColor: 0xf1c9a0,
+      hairColor: 0xc9d3dd,
+      hairStreakColor: 0x28e0d0,
+      bandColor: 0xff3b3b,
+      emblemColor: 0x28e0d0,
+      outfitColor: 0x8a3ffb,
+      beltColor: 0x1a1a1a,
+      wristbandColor: 0xffffff,
+      auraColor: 0x28e0d0,
+    },
+  },
+  {
+    id: 'zuri',
+    name: 'Zuri',
+    species: 'numbat',
+    colors: { body: 0xd5732f, accent: 0xffffff, kart: 0xa8e020, kartAccent: 0x3f7d1f },
+    stats: { speed: 3, accel: 5, handling: 4, weight: 1 },
+    weightClass: 'light',
+    perk: { id: 'torbellino', name: 'Torbellino', description: 'Con turbo, los rivales que toca salen girando' },
+    look: {
+      furColor: 0xd5732f,
+      stripeColor: 0xffffff,
+      snoutColor: 0xf3d8b8,
+      tailColor: 0xd5732f,
+      vestColor: 0xa8e020,
+      shoeColor: 0xff3b3b,
+      gogglesColor: 0x6b4a1f,
+      gogglesLensColor: 0x3ab0ff,
+    },
   },
 ];
+
+export function hasPerk(kart, perkId) {
+  return !!kart && !!kart.character && !!kart.character.perk && kart.character.perk.id === perkId;
+}
