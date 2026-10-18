@@ -17,10 +17,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PORT = 4184;
 const BASE = `http://localhost:${PORT}`;
-const TRACK_IDS = ['meadow', 'desert', 'snow'];
-const MIN_SIM_SECONDS = 120;
-const MAX_SIM_SECONDS = 360;
+const TRACK_IDS = process.env.RR_TRACKS ? process.env.RR_TRACKS.split(',') : ['meadow', 'desert', 'snow'];
+const MIN_SIM_SECONDS = Number(process.env.RR_MIN_SIM) || 120;
+const MAX_SIM_SECONDS = Number(process.env.RR_MAX_SIM) || 360;
 const ITEM_IDS = ['turbo', 'peel', 'bouncer', 'seeker', 'shield', 'storm'];
+// Calidad opcional por entorno (p. ej. RR_Q=low para acelerar la verificación).
+const Q = process.env.RR_Q ? `&q=${process.env.RR_Q}` : '';
 
 async function waitForServer(url, timeoutMs = 40000) {
   const start = Date.now();
@@ -52,7 +54,7 @@ async function runRace(browser, track) {
   const errors = wireConsole(page);
   let report = null;
   try {
-    await page.goto(`${BASE}/?autotest=1&track=${track}`, { waitUntil: 'load' });
+    await page.goto(`${BASE}/?autotest=1&track=${track}${Q}`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__game && window.__game.state === 'race', null, {
       timeout: 30000,
     });
@@ -95,7 +97,7 @@ async function runHarness(browser, track) {
   const errors = wireConsole(page);
   let report = null;
   try {
-    await page.goto(`${BASE}/?autotest=1&track=${track}`, { waitUntil: 'load' });
+    await page.goto(`${BASE}/?autotest=1&track=${track}${Q}`, { waitUntil: 'load' });
     await page.waitForFunction(() => window.__game && window.__game.state === 'race', null, {
       timeout: 30000,
     });
