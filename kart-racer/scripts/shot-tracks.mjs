@@ -13,10 +13,10 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ||= '/opt/pw-browsers';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const PORT = 4205;
+const PORT = Number(process.env.SHOT_PORT || 4241);
 const BASE = `http://localhost:${PORT}`;
 const TRACK_IDS = ['meadow', 'desert', 'snow'];
-const PREVIEW_OUT = '/tmp/rr-build-g-track';
+const PREVIEW_OUT = '/tmp/rr-build-track';
 
 async function waitForServer(url, timeoutMs = 40000) {
   const start = Date.now();
@@ -42,9 +42,9 @@ async function runCapture(page, track) {
 
   // --- Vista de carrera ---
   await page.evaluate(() => window.__game.simulate(8));
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(6000); // la cámara tarda ~6 s de frames en alcanzar al kart
   drawCalls = await page.evaluate(() => window.__game.drawCalls || 0);
-  await page.screenshot({ path: path.join(ROOT, 'shots', `track-${track}.png`) });
+  await page.screenshot({ path: path.join(ROOT, 'shots', `track-${track}.png`), timeout: 180000 });
 
   // --- Vista general: cámara elevada sobre el circuito ---
   await page.evaluate(() => {
@@ -58,8 +58,11 @@ async function runCapture(page, track) {
     k.object3d.visible = false;
     window.__game.simulate(0); // recoloca la cámara sin suavizado
   });
-  await page.waitForTimeout(900);
-  await page.screenshot({ path: path.join(ROOT, 'shots', `track-${track}-overview.png`) });
+  await page.waitForTimeout(2500);
+  await page.screenshot({
+    path: path.join(ROOT, 'shots', `track-${track}-overview.png`),
+    timeout: 180000,
+  });
 
   return drawCalls;
 }
@@ -76,8 +79,8 @@ async function main() {
   if (build.status !== 0) throw new Error('vite build falló');
 
   const server = spawn(
-    'npx',
-    ['vite', 'preview', '--outDir', PREVIEW_OUT, '--port', String(PORT), '--strictPort'],
+    'node',
+    ['node_modules/.bin/vite', 'preview', '--outDir', PREVIEW_OUT, '--port', String(PORT), '--strictPort'],
     { cwd: ROOT, stdio: 'ignore' }
   );
   const cleanup = () => {

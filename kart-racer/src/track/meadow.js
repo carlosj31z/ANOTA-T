@@ -81,7 +81,8 @@ export function buildMeadow(ctx) {
     const trunks = instantiate(spec.trunk, trunkMat, list, { scaleMin: 0.8, scaleMax: 1.5, yScaleVar: 0.2 });
     const foliageMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.85,
+      vertexColors: true,
+      roughness: 0.82,
       metalness: 0.0,
       flatShading: false,
     });
@@ -98,21 +99,21 @@ export function buildMeadow(ctx) {
 
   // -------------------- Hierba tupida junto a la pista --------------------
   const tuftColors = [0x7fbf4a, 0x9fd25a, 0x6fae3f, 0xb8d86a, 0x5f9a3a];
-  for (let v = 0; v < 2; v++) {
-    const tuft = buildGrassTuft(200 + v * 7, {
-      height: 0.6 + v * 0.25,
+  {
+    const tuft = buildGrassTuft(207, {
+      height: 0.8,
       rootColor: 0x2f5a1e,
       tipColor: 0xa9d95f,
-      blades: 6,
+      blades: 8,
     });
-    const list = scatterTrackSide(ctx, rnd, 1500, { latMin: half + 1.4, latMax: half + 20 });
+    const list = scatterTrackSide(ctx, rnd, 3000, { latMin: half + 1.4, latMax: half + 20 });
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
     applyWind(mat, { strength: 0.12, height: tuft.height, speed: 1.7, scale: 0.6, bend: 1.2 });
     windMats.push(mat);
     const mesh = instantiate(tuft.geo, mat, list, {
       castShadow: false,
-      scaleMin: 0.7,
-      scaleMax: 1.6,
+      scaleMin: 0.6,
+      scaleMax: 1.7,
       colors: () => tuftColors[Math.floor(rnd() * tuftColors.length)],
     });
     group.add(mesh);
@@ -142,31 +143,47 @@ export function buildMeadow(ctx) {
   updaters.push(bf.update);
 
   // -------------------- Molino de viento --------------------
+  // Torre + tejado en una malla (vertex colors) y las 4 aspas en otra que gira.
   const mill = new THREE.Group();
-  const towerMat = new THREE.MeshStandardMaterial({ color: 0xf0ece0, roughness: 0.8, metalness: 0.0 });
-  const tower = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 2.3, 14, 12), towerMat);
-  tower.position.y = 7;
-  tower.castShadow = true;
-  tower.receiveShadow = true;
-  mill.add(tower);
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(2.2, 2.6, 12),
-    new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6, metalness: 0.1 })
+  const tint = (g, hex) => {
+    const c = new THREE.Color(hex);
+    const arr = new Float32Array(g.attributes.position.count * 3);
+    for (let i = 0; i < arr.length; i += 3) {
+      arr[i] = c.r;
+      arr[i + 1] = c.g;
+      arr[i + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
+  const towerGeo = new THREE.CylinderGeometry(1.1, 2.3, 14, 24);
+  towerGeo.translate(0, 7, 0);
+  const roofGeo = new THREE.ConeGeometry(2.2, 2.6, 24);
+  roofGeo.translate(0, 15.3, 0);
+  const millBody = new THREE.Mesh(
+    mergeGeometries([
+      tint(towerGeo.toNonIndexed(), 0xf0ece0),
+      tint(roofGeo.toNonIndexed(), 0xc0392b),
+    ]),
+    new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.0 })
   );
-  roof.position.y = 15.3;
-  roof.castShadow = true;
-  mill.add(roof);
+  millBody.castShadow = true;
+  millBody.receiveShadow = true;
+  mill.add(millBody);
   const blades = new THREE.Group();
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xf7f3e8, roughness: 0.7, metalness: 0.0 });
+  const bladeParts = [];
   for (let i = 0; i < 4; i++) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.7, 9.0, 0.22), bladeMat);
-    b.position.set(0, 4.8, 0);
-    b.castShadow = true;
-    const holder = new THREE.Group();
-    holder.add(b);
-    holder.rotation.z = (i / 4) * Math.PI * 2;
-    blades.add(holder);
+    const b = new THREE.BoxGeometry(0.7, 9.0, 0.22);
+    b.translate(0, 4.8, 0);
+    b.rotateZ((i / 4) * Math.PI * 2);
+    bladeParts.push(b);
   }
+  const bladeMesh = new THREE.Mesh(
+    mergeGeometries(bladeParts),
+    new THREE.MeshStandardMaterial({ color: 0xf7f3e8, roughness: 0.7, metalness: 0.0 })
+  );
+  bladeMesh.castShadow = true;
+  blades.add(bladeMesh);
   blades.position.set(0, 12.6, 2.4);
   mill.add(blades);
   const millAngle = rnd() * Math.PI * 2;
@@ -186,13 +203,22 @@ export function buildMeadow(ctx) {
   updaters.push(balloons.update);
 
   // -------------------- Colinas lejanas --------------------
-  group.add(buildDistantHills(ctx, { count: 26 }).mesh);
+  group.add(
+    buildDistantHills(ctx, {
+      count: 26,
+      detail: 3,
+      colorBase: 0x4c8a3c,
+      colorTop: 0x86b56a,
+      dryColor: 0xa6b070,
+      normalKind: 'grass',
+    }).mesh
+  );
 
   // -------------------- Banderas --------------------
-  for (const side of [1, -1]) {
+  {
     const flags = buildTracksideFlags(samples, {
       half,
-      sideSign: side,
+      sides: [1, -1],
       spacing: 16,
       sampleSpacing: ctx.sampleSpacing,
       colors: [0xff3b3b, 0xffd23f, 0x2f80ff, 0x37d67a, 0xffffff],

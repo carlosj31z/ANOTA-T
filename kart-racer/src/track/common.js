@@ -13,38 +13,45 @@ export function buildStartArch(samples, half, name, palette) {
   group.name = 'start-arch';
 
   const postH = 9.0;
-  const postGeo = new THREE.CylinderGeometry(0.45, 0.55, postH, 10);
+  const postGeo = new THREE.CylinderGeometry(0.45, 0.55, postH, 20);
   const postMat = new THREE.MeshStandardMaterial({
-    color: palette.post,
+    color: 0xffffff,
+    vertexColors: true,
     roughness: 0.35,
-    metalness: 0.75,
+    metalness: 0.7,
     envMapIntensity: 1.1,
   });
   const off = half + 2.5;
   const l = s.left;
 
+  // Postes + remates: una sola malla (vertex colors) = 1 draw call.
+  const postCol = new THREE.Color(palette.post);
+  const capCol = new THREE.Color(palette.accent);
+  const paint = (g, c) => {
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      arr[i * 3] = c.r;
+      arr[i * 3 + 1] = c.g;
+      arr[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
   const parts = [];
-  const capMat = new THREE.MeshStandardMaterial({ color: palette.accent, roughness: 0.3, metalness: 0.6 });
   for (const sign of [1, -1]) {
     const g = postGeo.clone();
     g.translate(0, postH / 2, 0);
     g.translate(s.pos.x + l.x * off * sign, s.pos.y, s.pos.z + l.z * off * sign);
-    parts.push(g);
+    parts.push(paint(g.toNonIndexed(), postCol));
+    const cap = new THREE.SphereGeometry(0.62, 16, 12);
+    cap.translate(s.pos.x + l.x * off * sign, s.pos.y + postH + 0.2, s.pos.z + l.z * off * sign);
+    parts.push(paint(cap.toNonIndexed(), capCol));
   }
   const posts = new THREE.Mesh(mergeGeometries(parts), postMat);
   posts.castShadow = true;
   posts.receiveShadow = true;
   group.add(posts);
-  // remates en la punta de cada poste
-  const caps = new THREE.Mesh(
-    mergeGeometries([1, -1].map((sign) => {
-      const cap = new THREE.SphereGeometry(0.62, 12, 10);
-      cap.translate(s.pos.x + l.x * off * sign, s.pos.y + postH + 0.2, s.pos.z + l.z * off * sign);
-      return cap;
-    })),
-    capMat
-  );
-  group.add(caps);
 
   const bannerW = off * 2 - 0.6;
   const bTex = bannerTex(name, palette.bannerBg, palette.accent);
@@ -98,17 +105,17 @@ export function buildGrandstands(samples, half, palette, rnd) {
   const crowdData = [];
   const crowdColors = [0xff5a5a, 0xffd23f, 0x4fd1ff, 0x6be36b, 0xff8ad8, 0xffffff, 0xffa33f, 0x9a7bff];
 
+  const standGeos = [];
   for (const side of [1, -1]) {
-    const stand = new THREE.Mesh(stepGeo, stepMat);
-    stand.position.set(
+    // Las dos gradas se hornean en una única malla (1 draw call).
+    const sg = stepGeo.clone();
+    sg.rotateY(Math.atan2(anchor.tangent.x, anchor.tangent.z) + side * (Math.PI / 2));
+    sg.translate(
       anchor.pos.x + anchor.left.x * off * side,
       anchor.pos.y,
       anchor.pos.z + anchor.left.z * off * side
     );
-    stand.rotation.y = Math.atan2(anchor.tangent.x, anchor.tangent.z) + side * (Math.PI / 2);
-    stand.castShadow = true;
-    stand.receiveShadow = true;
-    group.add(stand);
+    standGeos.push(sg);
 
     for (let i = 0; i < 6; i++) {
       const localZ = 1.0 + i * 1.5;
@@ -132,6 +139,11 @@ export function buildGrandstands(samples, half, palette, rnd) {
       }
     }
   }
+
+  const stands = new THREE.Mesh(mergeGeometries(standGeos), stepMat);
+  stands.castShadow = true;
+  stands.receiveShadow = true;
+  group.add(stands);
 
   // Cada espectador = torso + cabeza fusionados (una sola malla instanciada).
   const crowdGeo = mergeGeometries([

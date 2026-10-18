@@ -2,11 +2,13 @@
 // rocas, mesas, arcos, pirámide lejana, oasis con agua y polvo en el aire.
 
 import * as THREE from 'three';
-import { mergeGeo, fbm2, smoothstep, displaceRadial } from './procgen.js';
+import { mergeGeo, fbm2, smoothstep, displaceRadial, weldSmoothNormals } from './procgen.js';
 import { buildCactus, buildShrub, buildPalm, scatter, instantiate } from './vegetation.js';
 import { buildRock, rockMaterial } from './rocks.js';
 import { createWaterMaterial } from './water.js';
+import { terrainNormal } from './textures.js';
 import { buildDust, buildTracksideFlags } from './props.js';
+import { setWindTime } from './materials.js';
 
 export const DESERT_AMBIENT = {
   seed: 9021,
@@ -73,7 +75,7 @@ export function buildDesert(ctx) {
 
   // -------------------- Rocas --------------------
   const rockMat = rockMaterial();
-  const rockSpecs = [buildRock(5, { detail: 2 }), buildRock(23, { detail: 2 }), buildRock(41, { detail: 1 })];
+  const rockSpecs = [buildRock(5, { detail: 3 }), buildRock(23, { detail: 3 })];
   const rockPos = scatter(ctx, rnd, 140, { minR: 24, maxR: 380, clearance: 5 });
   for (let v = 0; v < rockSpecs.length; v++) {
     const list = rockPos.filter((_, i) => i % rockSpecs.length === v);
@@ -90,14 +92,50 @@ export function buildDesert(ctx) {
   }
 
   // -------------------- Mesas lejanas --------------------
+  // Paredes erosionadas con estratos (colores por vértice), repisas suaves y
+  // surcos verticales; normales suaves (nada de cilindros lisos).
   const mesaParts = [];
+  const strata = [0xb9784a, 0xc98b58, 0xa5643d, 0xd29a66, 0x9a5a38].map((h) => new THREE.Color(h));
+  const mc = new THREE.Color();
   for (let i = 0; i < 5; i++) {
     const a = rnd() * Math.PI * 2;
     const r = 280 + rnd() * 340;
     const rb = 16 + rnd() * 18;
     const hgt = 22 + rnd() * 24;
-    const g = new THREE.CylinderGeometry(rb * (0.5 + rnd() * 0.3), rb, hgt, 16, 4);
-    displaceRadial(g, (x, z) => (fbm2(x * 0.06 + i * 7, z * 0.06 + i * 3) - 0.5) * 4.5);
+    const topR = rb * (0.5 + rnd() * 0.3);
+    const g = new THREE.CylinderGeometry(topR, rb, hgt, 48, 28);
+    const pos = g.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+    const ph = i * 11.3;
+    for (let v = 0; v < pos.count; v++) {
+      const x = pos.getX(v);
+      const y = pos.getY(v);
+      const z = pos.getZ(v);
+      const t = y / hgt + 0.5; // 0 base .. 1 tope
+      const ang = Math.atan2(z, x);
+      const rr = Math.hypot(x, z);
+      // repisas: pequeñas variaciones de radio con el nivel del estrato
+      const level = t * 6 + fbm2(Math.cos(ang) * 1.3 + ph, Math.sin(ang) * 1.3 + ph, 2) * 1.6;
+      const ledge = smoothstep(0.55, 0.95, level - Math.floor(level));
+      const gully = (fbm2(Math.cos(ang) * 3.5 + ph, Math.sin(ang) * 3.5 + t * 1.4 + ph, 4) - 0.5) * 0.16;
+      const slump = 1 + (1 - t) * 0.14 * smoothstep(0.35, 0, t); // faldón inferior
+      const k = (1 + ledge * 0.05 + gully) * slump;
+      const rim = t > 0.985 ? 0.96 : 1; // bisel del borde superior
+      if (rr > 1e-4) {
+        pos.setX(v, x * k * rim);
+        pos.setZ(v, z * k * rim);
+      }
+      pos.setY(v, y + (fbm2(x * 0.05 + ph, z * 0.05, 3) - 0.5) * 1.4 * (t > 0.9 ? 1 : 0.3));
+      const band = Math.floor(level);
+      mc.copy(strata[((band % strata.length) + strata.length) % strata.length]);
+      mc.lerp(strata[(((band + 1) % strata.length) + strata.length) % strata.length], ledge * 0.7);
+      mc.multiplyScalar(0.84 + fbm2(x * 0.12 + ph, y * 0.4 + z * 0.12, 3) * 0.3 + (1 - Math.min(1, gully * 6 + 0.5)) * 0.08);
+      colors[v * 3] = mc.r;
+      colors[v * 3 + 1] = mc.g;
+      colors[v * 3 + 2] = mc.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    weldSmoothNormals(g);
     g.rotateY(rnd() * Math.PI);
     g.translate(
       centroid.x + Math.cos(a) * r,
@@ -108,24 +146,51 @@ export function buildDesert(ctx) {
   }
   const mesas = new THREE.Mesh(
     mergeGeo(mesaParts),
-    new THREE.MeshStandardMaterial({ color: 0xa9764b, roughness: 0.95, metalness: 0.0, flatShading: true })
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.95,
+      metalness: 0.0,
+      normalMap: terrainNormal('rock', 256, 17),
+      normalScale: new THREE.Vector2(0.7, 0.7),
+    })
   );
   mesas.castShadow = true;
   group.add(mesas);
 
-  // -------------------- Arcos de roca --------------------
+  // -------------------- Arcos --------------------
   const archParts = [];
   for (let i = 0; i < 3; i++) {
     const a = rnd() * Math.PI * 2;
     const r = 210 + rnd() * 200;
-    const g = new THREE.TorusGeometry(6 + rnd() * 3, 1.9, 8, 14, Math.PI);
+    const ph = 5 + i * 9;
+    const g = new THREE.TorusGeometry(6 + rnd() * 3, 1.9, 20, 48, Math.PI);
+    // grosor irregular tipo roca erosionada, normales suaves
+    displaceRadial(
+      g,
+      (x, z, y) =>
+        (fbm2(x * 0.35 + ph, y * 0.35 + ph, 4) - 0.5) * 1.5 +
+        (fbm2(x * 1.1 + ph, z * 1.1 + ph, 3) - 0.5) * 0.45,
+      1,
+      ph,
+      ph,
+      ph
+    );
+    weldSmoothNormals(g);
     g.rotateY(rnd() * Math.PI);
-    g.translate(centroid.x + Math.cos(a) * r, heightAt(centroid.x + Math.cos(a) * r, centroid.z + Math.sin(a) * r), centroid.z + Math.sin(a) * r);
+    const ax = centroid.x + Math.cos(a) * r;
+    const az = centroid.z + Math.sin(a) * r;
+    g.translate(ax, heightAt(ax, az) - 0.9, az);
     archParts.push(g);
   }
   const arches = new THREE.Mesh(
     mergeGeo(archParts),
-    new THREE.MeshStandardMaterial({ color: 0xa8764a, roughness: 0.95, metalness: 0.0, flatShading: true })
+    new THREE.MeshStandardMaterial({
+      color: 0xb4804f,
+      roughness: 0.95,
+      metalness: 0.0,
+      normalMap: terrainNormal('rock', 256, 12),
+      normalScale: new THREE.Vector2(0.8, 0.8),
+    })
   );
   arches.castShadow = true;
   group.add(arches);
@@ -151,7 +216,7 @@ export function buildDesert(ctx) {
 
   // -------------------- Arbustos secos --------------------
   const shrubMat = new THREE.MeshStandardMaterial({ color: 0x9a8548, roughness: 0.95, metalness: 0.0 });
-  const shrubSpecs = [buildShrub(7), buildShrub(19), buildShrub(31)];
+  const shrubSpecs = [buildShrub(19, { height: 1.5 })];
   const shrubPos = scatter(ctx, rnd, 200, { minR: 20, maxR: 340, clearance: 4 });
   for (let v = 0; v < shrubSpecs.length; v++) {
     const list = shrubPos.filter((_, i) => i % shrubSpecs.length === v);
@@ -191,9 +256,34 @@ export function buildDesert(ctx) {
   group.add(ring);
   updaters.push(water.update);
 
-  const palmMatTrunk = new THREE.MeshStandardMaterial({ color: 0x8a6a3f, roughness: 0.9, metalness: 0.0 });
-  const palmMatFrond = new THREE.MeshStandardMaterial({ color: 0x4f9b4a, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide });
-  const palmSpecs = [buildPalm(2, { height: 8 }), buildPalm(14, { height: 6.5 }), buildPalm(26, { height: 9 })];
+  // Palmera completa (tronco + hojas) = una malla con vertex colors por variante.
+  const palmMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.85,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
+  const tintGeo = (g, fn) => {
+    const g2 = g.index ? g.toNonIndexed() : g;
+    const p = g2.attributes.position;
+    const arr = new Float32Array(p.count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) {
+      fn(c, p.getX(i), p.getY(i), p.getZ(i));
+      arr[i * 3] = c.r;
+      arr[i * 3 + 1] = c.g;
+      arr[i * 3 + 2] = c.b;
+    }
+    g2.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g2;
+  };
+  const palmSpecs = [buildPalm(2, { height: 8 }), buildPalm(26, { height: 9 })].map((sp) => ({
+    ...sp,
+    geo: mergeGeo([
+      tintGeo(sp.trunk, (c, x, y) => c.setHex(0x8a6a3f).multiplyScalar(0.75 + 0.25 * fbm2(y * 2.2, x, 2))),
+      tintGeo(sp.fronds, (c, x, y) => c.setHex(0x3f8a3f).lerp(new THREE.Color(0x7fb84e), Math.min(1, Math.max(0, (y - sp.height) * 0.3 + 0.35)))),
+    ]),
+  }));
   const palmPos = [];
   for (let i = 0; i < 16; i++) {
     const a = (i / 16) * Math.PI * 2 + rnd() * 0.3;
@@ -205,8 +295,7 @@ export function buildDesert(ctx) {
   for (let v = 0; v < palmSpecs.length; v++) {
     const list = palmPos.filter((_, i) => i % palmSpecs.length === v);
     if (!list.length) continue;
-    group.add(instantiate(palmSpecs[v].trunk, palmMatTrunk, list, { scaleMin: 0.85, scaleMax: 1.2 }));
-    group.add(instantiate(palmSpecs[v].fronds, palmMatFrond, list, { castShadow: false, scaleMin: 0.85, scaleMax: 1.2 }));
+    group.add(instantiate(palmSpecs[v].geo, palmMat, list, { scaleMin: 0.85, scaleMax: 1.2 }));
   }
 
   // -------------------- Polvo en el aire --------------------
@@ -215,16 +304,15 @@ export function buildDesert(ctx) {
   updaters.push(dust.update);
 
   // -------------------- Banderas --------------------
-  for (const side of [1, -1]) {
-    const flags = buildTracksideFlags(samples, {
+  const flags = buildTracksideFlags(samples, {
       half,
-      sideSign: side,
+      sides: [1, -1],
       spacing: 18,
       sampleSpacing,
       colors: [0xff8a2b, 0xffd23f, 0xc0392b, 0xffffff],
     });
-    group.add(flags.group);
-  }
+  group.add(flags.group);
+  updaters.push((dt, time) => setWindTime(flags.material, time));
 
   function update(dt, time) {
     for (const u of updaters) u(dt, time);

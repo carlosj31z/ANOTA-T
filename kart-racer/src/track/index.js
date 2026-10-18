@@ -16,6 +16,7 @@ import {
   checkerTex,
   wearAlphaTex,
   terrainNormal,
+  setMaxAnisotropy,
 } from './textures.js';
 import {
   MeshBuilder,
@@ -37,6 +38,19 @@ const BAND = 8; // franja offroad a cada lado (m)
 const CURB = 1.5; // ancho del bordillo (m)
 const RAMP_EDGE_MARGIN = 2.2; // m antes del borde donde isOnRamp = true
 const LOCAL_SEARCH = 40;
+
+// Busca el renderer de la aplicación (opcional) para afinar el filtrado de
+// texturas. Si no está disponible se usa anisotropía 8 por defecto.
+function findRenderer(opts) {
+  if (opts && opts.renderer && opts.renderer.isWebGLRenderer) return opts.renderer;
+  if (typeof window !== 'undefined') {
+    if (window.__renderer && window.__renderer.isWebGLRenderer) return window.__renderer;
+    if (window.__game && window.__game.renderer && window.__game.renderer.isWebGLRenderer) {
+      return window.__game.renderer;
+    }
+  }
+  return null;
+}
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const wrap01 = (t) => (((t % 1) + 1) % 1);
@@ -66,7 +80,7 @@ const TRACK_CONFIG = {
       { tc: 0.85, th: 0.006, lat: 0, hw: 5 },
     ],
     itemRows: [0.2, 0.52, 0.76],
-    road: { base: '#5b6067', light: '#787e86', dark: '#3f434a' },
+    road: { base: '#5b6067', light: '#787e86', dark: '#3f434a', tint: [1.0, 1.0, 1.0], wet: 0.0 },
     offroad: { base: '#4c9a46', light: '#63b957', dark: '#357a34' },
     palette: {
       post: 0xdedede, accent: 0xffd23f, bannerBg: '#c8362b', stand: 0x8a8f98,
@@ -92,7 +106,7 @@ const TRACK_CONFIG = {
       { tc: 0.79, th: 0.006, lat: 0, hw: 5 },
     ],
     itemRows: [0.16, 0.48, 0.72],
-    road: { base: '#6b6157', light: '#837a6c', dark: '#4e463e' },
+    road: { base: '#6b6157', light: '#837a6c', dark: '#4e463e', tint: [0.9, 0.95, 1.02], wet: 0.0 },
     offroad: { base: '#d9b26a', light: '#e8c887', dark: '#b98d4d' },
     palette: {
       post: 0xe0d0a8, accent: 0xff8a2b, bannerBg: '#b4531f', stand: 0xa98b5c,
@@ -118,7 +132,7 @@ const TRACK_CONFIG = {
       { tc: 0.88, th: 0.006, lat: 0, hw: 5 },
     ],
     itemRows: [0.18, 0.5, 0.8],
-    road: { base: '#7d8a94', light: '#9aa7b1', dark: '#616d77' },
+    road: { base: '#7d8a94', light: '#9aa7b1', dark: '#616d77', tint: [0.82, 0.88, 0.99], wet: 0.55 },
     offroad: { base: '#f2f7fc', light: '#ffffff', dark: '#d3deea' },
     palette: {
       post: 0xdfe8f0, accent: 0x6fb7ff, bannerBg: '#1f5f8f', stand: 0x9aa9b8,
@@ -135,6 +149,10 @@ export function createTrack(scene, trackId, opts = {}) {
   const cfg = TRACK_CONFIG[def.id] || TRACK_CONFIG.meadow;
   const ambient = cfg.ambient;
   const rnd = mulberry32(cfg.seed);
+
+  // Anisotropía del renderer (o 8 si no hay) antes de generar texturas.
+  const renderer = findRenderer(opts);
+  setMaxAnisotropy(renderer ? renderer.capabilities.getMaxAnisotropy() : 8);
 
   const group = new THREE.Group();
   group.name = `track:${def.id}`;
@@ -261,17 +279,27 @@ export function createTrack(scene, trackId, opts = {}) {
   // ----------------------------------------------------------------
   // Malla: carretera, bordillos, offroad, muros, marcas.
   // ----------------------------------------------------------------
-  const asphalt = asphaltMaps(1024, cfg.seed);
+  const roadCfg = cfg.road;
+  const asphalt = asphaltMaps(1024, cfg.seed, { tint: roadCfg.tint, wet: roadCfg.wet || 0 });
   for (const t of [asphalt.map, asphalt.normalMap, asphalt.roughnessMap]) t.repeat.set(4, 3);
-  const roadMat = new THREE.MeshStandardMaterial({
+  const roadCommon = {
     map: asphalt.map,
     normalMap: asphalt.normalMap,
+    normalScale: new THREE.Vector2(0.8, 0.8),
     roughnessMap: asphalt.roughnessMap,
     roughness: 1.0,
     metalness: 0.0,
     side: THREE.DoubleSide,
-    envMapIntensity: 0.6,
-  });
+    envMapIntensity: 0.7 + 0.4 * (roadCfg.wet || 0),
+  };
+  const roadMat =
+    (roadCfg.wet || 0) > 0
+      ? new THREE.MeshPhysicalMaterial({
+          ...roadCommon,
+          clearcoat: 0.5 * roadCfg.wet,
+          clearcoatRoughness: 0.55,
+        })
+      : new THREE.MeshStandardMaterial(roadCommon);
   const rb = new MeshBuilder();
   addRibbon(rb, samples, { latA: half, latB: -half, vScale: 16, close: true });
   const road = new THREE.Mesh(rb.geometry(), roadMat);

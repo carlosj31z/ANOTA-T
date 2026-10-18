@@ -2,11 +2,12 @@
 // cordilleras, lago helado, témpanos, nieve cayendo y aurora sutil.
 
 import * as THREE from 'three';
-import { mergeGeo } from './procgen.js';
-import { buildPine, buildGrassTuft, scatter, instantiate, barkMaterial } from './vegetation.js';
+import { smoothstep } from './procgen.js';
+import { buildPine, buildGrassTuft, scatter, instantiate } from './vegetation.js';
 import { buildRock, rockMaterial, buildMountainCone, mountainMaterial } from './rocks.js';
 import { createWaterMaterial } from './water.js';
 import { buildSnowfall, buildTracksideFlags } from './props.js';
+import { setWindTime } from './materials.js';
 
 export const SNOW_AMBIENT = {
   seed: 4242,
@@ -37,17 +38,17 @@ export const SNOW_AMBIENT = {
     roughness: 0.72,
     normalScale: 0.7,
     color: (x, z, h, rel, c) => {
-      const rock = Math.min(1, Math.max(0, (rel - 9) / 16));
-      const ice = Math.min(1, Math.max(0, (4 - rel) / 6));
+      const rock = smoothstep(8, 24, rel);
+      const ice = smoothstep(6, -1, rel) * 0.9;
       let r = 0.93, g = 0.96, b = 1.0;
       // hielo azulado en zonas bajas
       r = r * (1 - ice) + 0.62 * ice;
       g = g * (1 - ice) + 0.79 * ice;
       b = b * (1 - ice) + 0.9 * ice;
-      // roca en pendientes altas
-      r = r * (1 - rock) + 0.42 * rock;
-      g = g * (1 - rock) + 0.46 * rock;
-      b = b * (1 - rock) + 0.5 * rock;
+      // roca en alturas; transición suave (sin bandas duras)
+      r = r * (1 - rock) + 0.45 * rock;
+      g = g * (1 - rock) + 0.49 * rock;
+      b = b * (1 - rock) + 0.53 * rock;
       c.setRGB(r, g, b);
     },
   },
@@ -60,23 +61,25 @@ export function buildSnow(ctx) {
   const updaters = [];
 
   // -------------------- Pinos nevados --------------------
-  const trunkMat = barkMaterial();
-  const needleMat = new THREE.MeshStandardMaterial({ color: 0x2f6b45, roughness: 0.9, metalness: 0.0 });
-  const snowCapMat = new THREE.MeshStandardMaterial({ color: 0xf4f8fb, roughness: 0.55, metalness: 0.0, envMapIntensity: 1.1 });
+  // Un pino completo (tronco + agujas + nieve) = 1 InstancedMesh por variante.
+  const pineMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.82,
+    metalness: 0.0,
+    envMapIntensity: 0.9,
+  });
   const pineSpecs = [buildPine(4, { height: 9, radius: 2.2 }), buildPine(18, { height: 6.5, radius: 1.7 })];
   const pinePos = scatter(ctx, rnd, 190, { minR: 28, maxR: 340, clearance: 7, flatness: 10 });
   for (let v = 0; v < pineSpecs.length; v++) {
     const spec = pineSpecs[v];
     const list = pinePos.filter((_, i) => i % pineSpecs.length === v);
     if (!list.length) continue;
-    group.add(instantiate(spec.trunk, trunkMat, list, { scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
-    group.add(instantiate(spec.needles, needleMat, list, { scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
-    group.add(instantiate(spec.snow, snowCapMat, list, { castShadow: false, scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
+    group.add(instantiate(spec.geo, pineMat, list, { scaleMin: 0.8, scaleMax: 1.4, yScaleVar: 0.2 }));
   }
 
   // -------------------- Rocas --------------------
   const rMat = rockMaterial();
-  const rockSpecs = [buildRock(6, { detail: 2 }), buildRock(22, { detail: 1 })];
+  const rockSpecs = [buildRock(6, { detail: 3 }), buildRock(22, { detail: 2 })];
   const rockPos = scatter(ctx, rnd, 110, { minR: 24, maxR: 360, clearance: 5 });
   const rockTones = [0x8b98a6, 0x6f7c8a, 0xa4b0bd, 0x5f6b78];
   for (let v = 0; v < rockSpecs.length; v++) {
@@ -94,7 +97,7 @@ export function buildSnow(ctx) {
   }
 
   // -------------------- Cordilleras lejanas --------------------
-  const coneGeo = buildMountainCone(9, { rock: 0x5f6b78, rockTop: 0x8a95a2, snow: 0xf6fbff, snowLine: 0.48 });
+  const coneGeo = buildMountainCone(9, { rock: 0x4f5b68, rockTop: 0x7c8895, snow: 0xf6fbff, snowLine: 0.5 });
   const mountains = new THREE.InstancedMesh(coneGeo, mountainMaterial(), 26);
   const dummy = new THREE.Object3D();
   for (let i = 0; i < 26; i++) {
@@ -220,16 +223,15 @@ export function buildSnow(ctx) {
   });
 
   // -------------------- Banderas --------------------
-  for (const side of [1, -1]) {
-    const flags = buildTracksideFlags(samples, {
+  const flags = buildTracksideFlags(samples, {
       half,
-      sideSign: side,
+      sides: [1, -1],
       spacing: 18,
       sampleSpacing,
       colors: [0x2f80ff, 0xffffff, 0x6fb7ff, 0xffd23f],
     });
-    group.add(flags.group);
-  }
+  group.add(flags.group);
+  updaters.push((dt, time) => setWindTime(flags.material, time));
 
   function update(dt, time) {
     for (const u of updaters) u(dt, time);

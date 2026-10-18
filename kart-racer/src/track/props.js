@@ -29,18 +29,22 @@ export function buildTracksideFlags(samples, opts = {}) {
   const n = samples.length;
   const step = Math.max(1, Math.floor(spacing / (opts.sampleSpacing || 1.8)));
   const spots = [];
-  for (let i = 0; i < n; i += step) {
-    if (rnd() < 0.25) continue;
-    const s = samples[i];
-    const lateral = lat == null ? (opts.half + 6) * sideSign : lat * sideSign;
-    spots.push({
-      x: s.pos.x + s.left.x * lateral,
-      y: s.pos.y,
-      z: s.pos.z + s.left.z * lateral,
-      heading: Math.atan2(s.tangent.x, s.tangent.z),
-      color: colors[Math.floor(rnd() * colors.length)],
-      phase: rnd() * Math.PI * 2,
-    });
+  // Ambos lados del circuito en un único par de InstancedMesh (2 draw calls).
+  const sides = Array.isArray(opts.sides) ? opts.sides : [sideSign];
+  for (const side of sides) {
+    for (let i = 0; i < n; i += step) {
+      if (rnd() < 0.25) continue;
+      const s = samples[i];
+      const lateral = lat == null ? (opts.half + 6) * side : lat * side;
+      spots.push({
+        x: s.pos.x + s.left.x * lateral,
+        y: s.pos.y,
+        z: s.pos.z + s.left.z * lateral,
+        heading: Math.atan2(s.tangent.x, s.tangent.z),
+        color: colors[Math.floor(rnd() * colors.length)],
+        phase: rnd() * Math.PI * 2,
+      });
+    }
   }
 
   const poleGeo = new THREE.CylinderGeometry(0.06, 0.09, height, 6);

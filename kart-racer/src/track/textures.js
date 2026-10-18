@@ -8,6 +8,31 @@ import { mulberry32, hash2, valueNoise2, fbm2 } from './procgen.js';
 // --- PRNG determinista (re-exportado por compatibilidad) ---
 export { mulberry32 };
 
+// Anisotropía global de las texturas del bloque. El renderer la puede subir
+// (renderer.capabilities.getMaxAnisotropy()); si no hay renderer se usa 8.
+let _maxAniso = 8;
+export function setMaxAnisotropy(v) {
+  const n = typeof v === 'number' && isFinite(v) ? v : 8;
+  _maxAniso = Math.max(1, Math.min(16, Math.floor(n) || 8));
+}
+export function getMaxAnisotropy() {
+  return _maxAniso;
+}
+
+// Ajustes comunes de filtrado: mipmaps trilineales + anisotropía alta para
+// evitar aliasing/parpadeo en el suelo visto en perspectiva (contrato §9.2).
+function configureTex(t, srgb = true, repeat = true) {
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  t.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+  t.generateMipmaps = true;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.anisotropy = _maxAniso;
+  t.needsUpdate = true;
+  return t;
+}
+
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
   c.width = w;
@@ -19,16 +44,8 @@ export function canvasTex(w, h, draw, opts = {}) {
   const { c, ctx } = makeCanvas(w, h);
   draw(ctx, w, h);
   const t = new THREE.CanvasTexture(c);
-  if (opts.srgb !== false) t.colorSpace = THREE.SRGBColorSpace;
-  if (opts.repeat) {
-    t.wrapS = THREE.RepeatWrapping;
-    t.wrapT = THREE.RepeatWrapping;
-  } else {
-    t.wrapS = THREE.ClampToEdgeWrapping;
-    t.wrapT = THREE.ClampToEdgeWrapping;
-  }
-  t.anisotropy = 4;
-  t.needsUpdate = true;
+  configureTex(t, opts.srgb !== false, !!opts.repeat);
+  if (typeof opts.anisotropy === 'number') t.anisotropy = opts.anisotropy;
   return t;
 }
 
@@ -90,11 +107,8 @@ function normalMapFromHeight(H, size, strength) {
     }
   }
   const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
   tex.colorSpace = THREE.NoColorSpace;
-  tex.anisotropy = 4;
-  tex.needsUpdate = true;
+  configureTex(tex, false, true);
   return tex;
 }
 
@@ -108,44 +122,45 @@ function grayMapFromField(F, size, lo = 0, hi = 1) {
     data[i * 4 + 3] = 255;
   }
   const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
   tex.colorSpace = THREE.NoColorSpace;
-  tex.anisotropy = 4;
-  tex.needsUpdate = true;
+  configureTex(tex, false, true);
   return tex;
 }
 
 // =====================================================================
-// ASFALTO: color 1024², normal y roughness derivados. Áridos, grietas,
-// manchas de neumático y zonas pulidas.
+// ASFALTO: color 1024², normal y roughness derivados. Áridos suaves, grietas
+// tenues, manchas de neumático y zonas pulidas. Frecuencia de detalle
+// moderada + mipmaps/anisotropía para que no parpadee en perspectiva.
 // =====================================================================
-export function asphaltMaps(size = 1024, seed = 1) {
+export function asphaltMaps(size = 1024, seed = 1, opts = {}) {
   const rnd = mulberry32(seed);
   const H = new Float32Array(size * size);
   const R = new Float32Array(size * size);
   const maskPolish = new Float32Array(size * size); // 1 = zona pulida
+  const tint = opts.tint || [1, 1, 1];
+  const wet = opts.wet ?? 0; // 0..1: asfalto frío y algo húmedo
 
-  // Áridos finos + media escala.
+  // Grano de media frecuencia (nada de micro-detalle: evita parpadeo).
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const u = x / size;
       const v = y / size;
-      const fine = tfbm(u, v, 160, 2, seed + 1);
-      const med = tfbm(u, v, 22, 3, seed + 3);
+      const fine = tfbm(u, v, 46, 2, seed + 1);
+      const med = tfbm(u, v, 13, 3, seed + 3);
       const i = y * size + x;
-      H[i] = fine * 0.7 + med * 0.3;
-      R[i] = 0.72 + med * 0.28;
+      H[i] = fine * 0.55 + med * 0.45;
+      // Rugosidad alta pero bastante uniforme (sin contraste duro).
+      R[i] = 0.8 + med * 0.14;
     }
   }
 
-  // Áridos sueltos (guijarros) que sobresalen.
-  const pebbles = Math.floor(size * 6);
+  // Áridos suaves (pocos, redondeados) que rompen la superficie sin brillar.
+  const pebbles = Math.floor(size * 2.2);
   for (let p = 0; p < pebbles; p++) {
     const cx = Math.floor(rnd() * size);
     const cy = Math.floor(rnd() * size);
-    const rad = 1 + rnd() * 2.4;
-    const peak = 0.35 + rnd() * 0.5;
+    const rad = 1.4 + rnd() * 2.6;
+    const peak = 0.16 + rnd() * 0.28;
     const r2 = rad * rad;
     for (let dy = -Math.ceil(rad); dy <= rad; dy++) {
       for (let dx = -Math.ceil(rad); dx <= rad; dx++) {
@@ -154,33 +169,30 @@ export function asphaltMaps(size = 1024, seed = 1) {
         const x = (cx + dx + size) % size;
         const y = (cy + dy + size) % size;
         const fall = 1 - d2 / r2;
-        H[y * size + x] += peak * fall;
+        H[y * size + x] += peak * fall * fall;
       }
     }
   }
 
-  // Grietas: paseos aleatorios oscuros y hundidos.
-  const cracks = 5;
+  // Grietas tenues: paseos aleatorios poco profundos.
+  const cracks = 4;
   for (let c = 0; c < cracks; c++) {
     let x = rnd() * size;
     let y = rnd() * size;
     let ang = rnd() * Math.PI * 2;
-    const steps = 60 + Math.floor(rnd() * 90);
+    const steps = 50 + Math.floor(rnd() * 70);
     for (let s = 0; s < steps; s++) {
-      ang += (rnd() - 0.5) * 0.7;
-      x += Math.cos(ang) * 2.2;
-      y += Math.sin(ang) * 2.2;
+      ang += (rnd() - 0.5) * 0.6;
+      x += Math.cos(ang) * 2.4;
+      y += Math.sin(ang) * 2.4;
       const xi = ((Math.floor(x) % size) + size) % size;
       const yi = ((Math.floor(y) % size) + size) % size;
       const i = yi * size + xi;
-      H[i] -= 0.5;
-      R[i] = Math.min(1, R[i] + 0.2);
-      // ensancha un poco la grieta
+      H[i] -= 0.28;
+      R[i] = Math.min(1, R[i] + 0.12);
       for (let k = 0; k < 2; k++) {
         const j = ((yi + (k ? 1 : -1)) * size + xi + size) % (size * size);
-        if (H[j] !== undefined) {
-          H[j] -= 0.22;
-        }
+        if (H[j] !== undefined) H[j] -= 0.12;
       }
     }
   }
@@ -197,7 +209,10 @@ export function asphaltMaps(size = 1024, seed = 1) {
         const d = Math.abs(u - (uc + wob));
         if (d < hw) {
           const t = 1 - d / hw;
-          maskPolish[y * size + x] = Math.max(maskPolish[y * size + x], t * (0.6 + 0.4 * tfbm(u, y / size, 8, 3, seed + 9)));
+          maskPolish[y * size + x] = Math.max(
+            maskPolish[y * size + x],
+            t * (0.5 + 0.5 * tfbm(u, y / size, 8, 3, seed + 9))
+          );
         }
       }
     }
@@ -205,34 +220,31 @@ export function asphaltMaps(size = 1024, seed = 1) {
   for (let i = 0; i < size * size; i++) {
     const pol = maskPolish[i];
     if (pol > 0) {
-      R[i] = R[i] * (1 - pol) + 0.33 * pol;
-      H[i] *= 1 - 0.25 * pol;
+      // Zonas rodadas: un poco más lisas (más reflejo), sin contraste extremo.
+      R[i] = R[i] * (1 - 0.35 * pol) - wet * 0.18 * pol;
+      if (R[i] < 0.18) R[i] = 0.18;
+      H[i] *= 1 - 0.16 * pol;
     }
   }
 
-  // Color: gris asfáltico con variación, grietas oscuras y bandas.
+  // Color: gris asfáltico con variación, grietas tenues y bandas.
   const { c, ctx } = makeCanvas(size, size);
   const base = ctx.createImageData(size, size);
   for (let i = 0; i < size * size; i++) {
-    const h = H[i];
-    let g = 46 + h * 46;
-    g *= 1 - 0.55 * maskPolish[i];
-    const iv = Math.max(0, Math.min(255, g));
-    base.data[i * 4] = iv * 1.0;
-    base.data[i * 4 + 1] = iv * 1.01;
-    base.data[i * 4 + 2] = iv * 1.06;
+    let g = 76 + H[i] * 36;
+    g *= 1 - 0.34 * maskPolish[i];
+    g = Math.max(0, Math.min(255, g));
+    base.data[i * 4] = Math.max(0, Math.min(255, g * tint[0]));
+    base.data[i * 4 + 1] = Math.max(0, Math.min(255, g * tint[1]));
+    base.data[i * 4 + 2] = Math.max(0, Math.min(255, g * tint[2]));
     base.data[i * 4 + 3] = 255;
   }
   ctx.putImageData(base, 0, 0);
 
   const map = new THREE.CanvasTexture(c);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = THREE.RepeatWrapping;
-  map.wrapT = THREE.RepeatWrapping;
-  map.anisotropy = 8;
-  map.needsUpdate = true;
+  configureTex(map, true, true);
 
-  const normalMap = normalMapFromHeight(H, size, 2.4);
+  const normalMap = normalMapFromHeight(H, size, 1.35);
   const roughnessMap = grayMapFromField(R, size, 0, 1);
   return { map, normalMap, roughnessMap };
 }

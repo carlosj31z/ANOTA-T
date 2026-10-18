@@ -10,6 +10,8 @@ import {
   tubeFromPoints,
   fbm2,
   mulberry32,
+  weldSmoothNormals,
+  sphericalNormals,
 } from './procgen.js';
 import { barkMaps } from './textures.js';
 
@@ -56,25 +58,61 @@ function ribbonAlongCurve(points, segments, widthFn, droop = 0) {
   return g;
 }
 
-// Nube de hojas: varias icosaedros subdivididos desplazados con ruido.
+// Nube de hojas: muchas masas icosaédricas (detalle 2) desplazadas con ruido,
+// normales suaves + mezcla esférica para que la copa ilumine como una masa
+// redonda y orgánica (nada facetado) y un vertex color de oclusión/moteado
+// (interior sombrío, puntas claras, parches de hoja) que da volumen realista.
 function leafCloud(seed, blobs, radius) {
   const rnd = mulberry32(seed);
   const parts = [];
   for (let i = 0; i < blobs; i++) {
-    const r = radius * (0.6 + rnd() * 0.6);
-    const g = new THREE.IcosahedronGeometry(r, 1);
-    const ang = rnd() * Math.PI * 2;
-    const rad = rnd() * radius * 0.7;
+    const r = radius * (0.4 + rnd() * 0.42);
+    const g = new THREE.IcosahedronGeometry(r, 2);
+    const ang = (i / blobs) * Math.PI * 2 * 1.7 + rnd() * 0.9;
+    const u = i === 0 ? 0 : 0.25 + rnd() * 0.75;
+    const rad = u * radius * 0.78;
+    const ph = rnd() * 30;
+    // desplazar alrededor del centro de la masa y luego colocarla
+    displaceRadial(
+      g,
+      (x, z, y) =>
+        (fbm2(x * 0.9 + ph, z * 0.9 + ph, 4) - 0.5) * r * 0.62 +
+        (fbm2(x * 2.6 + ph, y * 2.6 + ph, 3) - 0.5) * r * 0.2,
+      1,
+      ph,
+      ph,
+      ph
+    );
     g.translate(
       Math.cos(ang) * rad,
-      r * 0.5 + rnd() * radius * 0.6,
+      radius * 0.55 + (rnd() - 0.35) * radius * 0.78 * (0.4 + u * 0.7),
       Math.sin(ang) * rad
     );
-    const ph = rnd() * 30;
-    displaceRadial(g, (x, z, y) => (fbm2(x * 0.7 + ph, z * 0.7 + ph) - 0.5) * r * 0.7, 1, ph, ph, ph);
     parts.push(g);
   }
-  return mergeGeo(parts);
+  const merged = mergeGeo(parts);
+  weldSmoothNormals(merged);
+  const center = new THREE.Vector3(0, radius * 0.6, 0);
+  sphericalNormals(merged, center, 0.7);
+
+  // Vertex color: AO + moteado de hojas.
+  const pos = merged.attributes.position;
+  const col = new Float32Array(pos.count * 3);
+  const tmp = new THREE.Vector3();
+  for (let v = 0; v < pos.count; v++) {
+    tmp.set(pos.getX(v) - center.x, pos.getY(v) - center.y, pos.getZ(v) - center.z);
+    const d = Math.min(1, tmp.length() / (radius * 1.05));
+    const up = Math.min(1, Math.max(0, (tmp.y / (radius * 0.9)) * 0.5 + 0.5));
+    const clump = fbm2(pos.getX(v) * 1.5 + seed, pos.getZ(v) * 1.5 + pos.getY(v) * 1.1, 3);
+    const leaf = fbm2(pos.getX(v) * 4.5 + 9, pos.getY(v) * 4.5 + pos.getZ(v) * 3.1, 2);
+    const ao = 0.42 + 0.58 * Math.min(1, Math.pow(d, 0.8) * 0.65 + up * 0.55);
+    const m = ao * (0.78 + clump * 0.4) * (0.92 + leaf * 0.16);
+    col[v * 3] = Math.min(1, m * (0.96 + up * 0.1));
+    col[v * 3 + 1] = Math.min(1, m);
+    col[v * 3 + 2] = Math.min(1, m * (0.9 - up * 0.08));
+  }
+  merged.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return merged;
 }
 
 // -------- Constructores --------
@@ -96,8 +134,26 @@ export function buildBroadleaf(seed, opts = {}) {
       )
     );
   }
-  const trunk = tubeFromPoints(trunkPts, 0.24, 12, 6);
+  const trunk = tubeFromPoints(trunkPts, 0.24, 14, 8);
   const parts = [trunk];
+  // raíces que ensanchan la base y anclan el árbol al suelo
+  const roots = 4 + Math.floor(rnd() * 3);
+  for (let i = 0; i < roots; i++) {
+    const ang = (i / roots) * Math.PI * 2 + rnd() * 0.5;
+    const len = height * (0.1 + rnd() * 0.08);
+    parts.push(
+      tubeFromPoints(
+        [
+          new THREE.Vector3(Math.cos(ang) * 0.12, height * 0.1, Math.sin(ang) * 0.12),
+          new THREE.Vector3(Math.cos(ang) * len * 0.6, 0.06, Math.sin(ang) * len * 0.6),
+          new THREE.Vector3(Math.cos(ang) * len, -0.05, Math.sin(ang) * len),
+        ],
+        0.1,
+        6,
+        6
+      )
+    );
+  }
   // ramas
   const nb = 2 + Math.floor(rnd() * 2);
   for (let i = 0; i < nb; i++) {
@@ -117,47 +173,117 @@ export function buildBroadleaf(seed, opts = {}) {
           base.clone().add(new THREE.Vector3(Math.cos(ang) * len, len * 0.9, Math.sin(ang) * len)),
         ],
         0.11,
-        6,
-        5
+        7,
+        6
       )
     );
   }
   const trunkGeo = mergeGeo(parts);
+  weldSmoothNormals(trunkGeo);
 
-  const foliage = leafCloud(seed + 101, 6, height * 0.42);
+  const foliage = leafCloud(seed + 101, 11, height * 0.46);
   foliage.translate(0, height * 0.6, 0);
 
-  return { trunk: trunkGeo, foliage, height, radius: height * 0.42 };
+  return { trunk: trunkGeo, foliage, height, radius: height * 0.46 };
 }
 
-// Pino nevado: tronco + capas cónicas de agujas + nieve acumulada.
+// Pino nevado: tronco + capas cónicas de agujas con borde irregular + nieve
+// acumulada encima. Normales suaves y muchas caras (nada de pirámides).
 export function buildPine(seed, opts = {}) {
   const rnd = mulberry32(seed);
   const height = opts.height ?? 7 + rnd() * 4;
-  const trunkGeo = new THREE.CylinderGeometry(0.16, 0.28, height * 0.35, 6);
-  trunkGeo.translate(0, height * 0.175, 0);
+  const radial = opts.radial ?? 14;
+  const trunkGeo = new THREE.CylinderGeometry(0.16, 0.3, height * 0.36, 10);
+  trunkGeo.translate(0, height * 0.18, 0);
+  weldSmoothNormals(trunkGeo);
 
-  const layers = 4;
+  const layers = 5;
   const needleParts = [];
   const snowParts = [];
   for (let i = 0; i < layers; i++) {
     const u = i / (layers - 1);
-    const y = height * (0.22 + u * 0.68);
-    const r = (opts.radius ?? 1.9) * (1 - u * 0.78);
-    const hh = height * 0.32 * (1 - u * 0.4);
-    const cone = new THREE.ConeGeometry(r, hh, 8);
+    const y = height * (0.2 + u * 0.7);
+    const r = (opts.radius ?? 1.9) * (1 - u * 0.8) + 0.14;
+    const hh = height * 0.3 * (1 - u * 0.35);
+    const ph = seed + i * 13;
+    const cone = new THREE.ConeGeometry(r, hh, radial, 3);
     cone.translate(0, y + hh * 0.35, 0);
-    displaceRadial(cone, (x, z) => (fbm2(x * 1.4 + seed, z * 1.4 + seed) - 0.5) * r * 0.5, 1, seed, seed, seed);
+    // borde irregular: las puntas de la falda se retuercen con ruido
+    displaceRadial(
+      cone,
+      (x, z, vy) => {
+        const edge = 1 - Math.min(1, Math.max(0, vy + 0.5));
+        const n = fbm2(x * 1.6 + ph, z * 1.6 + ph, 4) - 0.5;
+        const n2 = fbm2(x * 5.5 + ph, z * 5.5 + ph, 3) - 0.5;
+        return (n * 0.5 + n2 * 0.16) * r * (0.45 + 0.55 * edge);
+      },
+      1,
+      ph,
+      ph,
+      ph
+    );
+    weldSmoothNormals(cone);
     needleParts.push(cone);
-    // capa de nieve: cono bajo y achatado sobre la capa
-    const snow = new THREE.ConeGeometry(r * 1.03, hh * 0.42, 8);
-    snow.translate(0, y + hh * 0.62, 0);
+    // capa de nieve: cono bajo y achatado sobre la falda
+    const snow = new THREE.ConeGeometry(r * 1.04, hh * 0.44, radial, 3);
+    snow.translate(0, y + hh * 0.6, 0);
+    displaceRadial(
+      snow,
+      (x, z) => (fbm2(x * 1.9 + ph, z * 1.9 + ph, 3) - 0.5) * r * 0.22,
+      1,
+      ph,
+      ph,
+      ph
+    );
+    weldSmoothNormals(snow);
     snowParts.push(snow);
   }
+  const needles = mergeGeo(needleParts);
+  const snowGeo = mergeGeo(snowParts);
+
+  // Geometría única coloreada por vértice (tronco + agujas + nieve): un pino
+  // completo en un solo InstancedMesh. Agujas más oscuras en el interior,
+  // más claras en las puntas; nieve blanca azulada.
+  const paint = (g, fn) => {
+    const p = g.attributes.position;
+    const n = g.attributes.normal;
+    const arr = new Float32Array(p.count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) {
+      fn(c, p.getX(i), p.getY(i), p.getZ(i), n.getY(i));
+      arr[i * 3] = c.r;
+      arr[i * 3 + 1] = c.g;
+      arr[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    return g;
+  };
+  const maxR = (opts.radius ?? 1.9) + 0.2;
+  const barkC = new THREE.Color(0x5a4630);
+  const needleDark = new THREE.Color(0x1d4a31);
+  const needleLight = new THREE.Color(0x3f8057);
+  const snowC = new THREE.Color(0xf2f7fb);
+  const snowShade = new THREE.Color(0xc9d9e8);
+  paint(trunkGeo, (c, x, y, z) => {
+    c.copy(barkC).multiplyScalar(0.8 + 0.4 * fbm2(x * 6 + y * 2, z * 6, 2));
+  });
+  paint(needles, (c, x, y, z, ny) => {
+    const rr = Math.min(1, Math.hypot(x, z) / maxR);
+    const n = fbm2(x * 3 + seed, z * 3 + y * 1.7, 3);
+    c.copy(needleDark).lerp(needleLight, Math.min(1, rr * 0.8 + n * 0.35));
+    c.multiplyScalar(0.85 + 0.3 * Math.max(0, ny));
+  });
+  paint(snowGeo, (c, x, y, z, ny) => {
+    const n = fbm2(x * 2.5 + seed, z * 2.5 + y, 3);
+    c.copy(snowShade).lerp(snowC, Math.min(1, 0.55 + Math.max(0, ny) * 0.5 + n * 0.2));
+  });
+  const geo = mergeGeo([trunkGeo, needles, snowGeo]);
+
   return {
     trunk: trunkGeo,
-    needles: mergeGeo(needleParts),
-    snow: mergeGeo(snowParts),
+    needles,
+    snow: snowGeo,
+    geo,
     height,
     radius: opts.radius ?? 1.9,
   };

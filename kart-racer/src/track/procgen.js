@@ -126,6 +126,78 @@ export function displaceRadial(geo, fn, freq = 1, seedX = 0, seedZ = 0, seedY = 
   return geo;
 }
 
+// Normales suaves soldando por posición: promedia las normales de todas las
+// caras que comparten un mismo vértice (incluso en geometría no indexada o con
+// costuras de UV). Es lo que elimina el aspecto facetado de rocas, copas y
+// colinas. No toca posiciones ni UVs.
+export function weldSmoothNormals(geo) {
+  const pos = geo.attributes.position;
+  const count = pos.count;
+  const idx = geo.index;
+  const triCount = idx ? idx.count / 3 : count / 3;
+  const keyOf = (i) =>
+    pos.getX(i).toFixed(3) + '_' + pos.getY(i).toFixed(3) + '_' + pos.getZ(i).toFixed(3);
+  const acc = new Map();
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const ac = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  for (let t = 0; t < triCount; t++) {
+    const i0 = idx ? idx.getX(t * 3) : t * 3;
+    const i1 = idx ? idx.getX(t * 3 + 1) : t * 3 + 1;
+    const i2 = idx ? idx.getX(t * 3 + 2) : t * 3 + 2;
+    a.fromBufferAttribute(pos, i0);
+    b.fromBufferAttribute(pos, i1);
+    c.fromBufferAttribute(pos, i2);
+    ab.subVectors(b, a);
+    ac.subVectors(c, a);
+    n.crossVectors(ab, ac);
+    const verts = [i0, i1, i2];
+    for (let v = 0; v < 3; v++) {
+      const k = keyOf(verts[v]);
+      let e = acc.get(k);
+      if (!e) {
+        e = [0, 0, 0];
+        acc.set(k, e);
+      }
+      e[0] += n.x;
+      e[1] += n.y;
+      e[2] += n.z;
+    }
+  }
+  const normals = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const e = acc.get(keyOf(i)) || [0, 1, 0];
+    const len = Math.hypot(e[0], e[1], e[2]) || 1;
+    normals[i * 3] = e[0] / len;
+    normals[i * 3 + 1] = e[1] / len;
+    normals[i * 3 + 2] = e[2] / len;
+  }
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  return geo;
+}
+
+// Mezcla las normales geométricas hacia una dirección esférica (la copa
+// ilumina como una masa redonda y suave aunque tenga irregularidades).
+export function sphericalNormals(geo, center, blend = 0.7) {
+  const pos = geo.attributes.position;
+  const nor = geo.attributes.normal;
+  const v = new THREE.Vector3();
+  const r = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(nor, i);
+    r.set(pos.getX(i) - center.x, pos.getY(i) - center.y, pos.getZ(i) - center.z);
+    if (r.lengthSq() < 1e-8) continue;
+    r.normalize();
+    v.lerp(r, blend).normalize();
+    nor.setXYZ(i, v.x, v.y, v.z);
+  }
+  nor.needsUpdate = true;
+  return geo;
+}
+
 // Desplaza vértices con un campo arbitrario f(x,y,z)->[dx,dy,dz].
 export function displaceVertices(geo, fn) {
   const pos = geo.attributes.position;
