@@ -7,7 +7,7 @@ import {
   NUM_RACERS,
   TRACK_IDS,
 } from '../shared/constants.js';
-import { CHARACTERS } from '../shared/characters.js';
+import { CHARACTERS, hasPerk } from '../shared/characters.js';
 import { TRACKS } from '../shared/tracks.js';
 import { createTrack } from '../track/index.js';
 import { createKart } from '../kart/index.js';
@@ -22,6 +22,50 @@ const PLAYER_FINISH_GRACE = 8; // s tras la meta del jugador antes de resultados
 const BUMP_COOLDOWN = 0.5; // s entre eventos BUMP de la misma pareja
 const BUMP_TRANSFER = 0.2; // fracción del impulso de choque que se intercambia
 const BUMP_MAX_DV = 3; // m/s máximo de cambio de velocidad por choque
+const PERK_TORBELLINO_COOLDOWN = 1; // s de cooldown del torbellino por víctima
+const PERK_EVENT = 'kart:perk'; // evento propio de core: { kart, perk, victim? }
+const EMPUJON_PUSH = 2; // `empujon`: su empuje sobre el rival ×2
+const EMPUJON_SELF = 0.3; // `empujon`: su propio desplazamiento ×0.3
+
+function makeRng(seed) {
+  let s = (seed >>> 0) || 0x9e3779b9;
+  return function rng() {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle(arr, rng) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
+function hashString(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// Nombre legible de un pase del composer (el build minificado renombra clases).
+function passName(pass) {
+  if (pass.normalMaterial && pass.gtaoMaterial) return 'GTAO';
+  if (pass.nMips != null) return 'Bloom';
+  if (pass.edgesRT || pass.weightsRT) return 'SMAA';
+  if ('clearDepth' in pass && pass.scene && pass.camera && !pass.uniforms) return 'Render';
+  if (pass._outputColorSpace !== undefined) return 'Output';
+  if (pass.uniforms) return 'Shader';
+  return (pass.constructor && pass.constructor.name) || 'Pass';
+}
 
 function colorCss(hex) {
   if (typeof hex === 'number') return `#${hex.toString(16).padStart(6, '0')}`;
@@ -33,7 +77,7 @@ function clamp(v, a, b) {
 }
 
 export function createGame(deps) {
-  const { renderer, scene, camera, events, audio, ui, input } = deps;
+  const { renderer, scene, camera, events, audio, ui, input, pipeline, touch } = deps;
 
   const game = {
     // --- estado público (para autotest, vía getters/objeto) ---
@@ -46,7 +90,9 @@ export function createGame(deps) {
     raceInfo: new Map(),
     places: new Map(),
     bumpTimers: new Map(),
+    perkTimers: new Map(),
     bumpCount: 0,
+    perkCount: 0,
     items: null,
     fx: null,
     player: null,
@@ -64,8 +110,25 @@ export function createGame(deps) {
     lastCount: 4,
     autotest: false,
     autotestTrack: TRACK_IDS[0],
+    autotestChar: null,
+    rng: null,
+    boostSmooth: 0,
+    touchVisible: false,
     chase: createChaseCamera(camera),
   };
+
+  // ---------------------------------------------------------------
+  // Perks implementados por core (§10.2)
+  // ---------------------------------------------------------------
+  // `salida` (Luna): turbo automático de 1.5 s al dar la salida (jugador o CPU).
+  events.on(EVENTS.RACE_START, () => {
+    for (const kart of game.karts) {
+      if (!hasPerk(kart, 'salida')) continue;
+      kart.applyBoost(1.5, 1, 'pad');
+      game.perkCount += 1;
+      events.emit(PERK_EVENT, { kart, perk: 'salida' });
+    }
+  });
 
   // ---------------------------------------------------------------
   // Estado
@@ -115,6 +178,7 @@ export function createGame(deps) {
   // Carrera
   // ---------------------------------------------------------------
   function disposeRace() {
+    if (pipeline) pipeline.setSun(null);
     if (game.track) {
       game.track.dispose();
       game.track = null;
@@ -137,7 +201,9 @@ export function createGame(deps) {
     game.raceInfo.clear();
     game.places = new Map();
     game.bumpTimers.clear();
+    game.perkTimers.clear();
     game.bumpCount = 0;
+    game.perkCount = 0;
     game.player = null;
     game.playerFinishTime = null;
     game.finishedCount = 0;
@@ -146,6 +212,9 @@ export function createGame(deps) {
 
   function pickOpponents(playerCharacter) {
     const others = CHARACTERS.filter((c) => !playerCharacter || c.id !== playerCharacter.id);
+    // Los 7 rivales se eligen al azar (sin repetir) entre los 10 restantes.
+    // En autotest hay una semilla fija (o `?seed=`) para reproducibilidad.
+    shuffle(others, game.rng || Math.random);
     return others.slice(0, NUM_RACERS - 1);
   }
 
@@ -153,6 +222,7 @@ export function createGame(deps) {
     disposeRace();
     game.trackDef = trackDef;
     game.track = createTrack(scene, trackDef.id);
+    if (pipeline) pipeline.setSun(game.track.sunLight || null);
     game.items = createItemSystem(scene, game.track, events);
     game.fx = createFX(scene, events);
 
@@ -210,6 +280,7 @@ export function createGame(deps) {
     if (opts.skipIntro) {
       setState('race');
       game.chase.setMode('chase');
+      events.emit(EVENTS.RACE_START, {});
     } else {
       game.introTimer = 0;
       setState('intro');
@@ -282,10 +353,16 @@ export function createGame(deps) {
   function updateCollisions() {
     const karts = game.karts;
     const bumpTimers = game.bumpTimers;
+    const perkTimers = game.perkTimers;
     for (const [key, t] of bumpTimers) {
       const nt = t - FIXED_DT;
       if (nt <= 0) bumpTimers.delete(key);
       else bumpTimers.set(key, nt);
+    }
+    for (const [kart, t] of perkTimers) {
+      const nt = t - FIXED_DT;
+      if (nt <= 0) perkTimers.delete(kart);
+      else perkTimers.set(kart, nt);
     }
     for (let i = 0; i < karts.length; i++) {
       const a = karts[i];
@@ -307,8 +384,21 @@ export function createGame(deps) {
         const overlap = min - dist;
 
         // Reparto del empuje inversamente proporcional a la masa: el ligero cede.
-        const pushA = overlap * (invA / invSum);
-        const pushB = overlap * (invB / invSum);
+        let pushA = overlap * (invA / invSum);
+        let pushB = overlap * (invB / invSum);
+
+        // `empujon` (Bruno): su empuje ×2 y su propio desplazamiento ×0.3.
+        const aEmp = hasPerk(a, 'empujon');
+        const bEmp = hasPerk(b, 'empujon');
+        if (aEmp) {
+          pushA *= EMPUJON_SELF;
+          pushB *= EMPUJON_PUSH;
+        }
+        if (bEmp) {
+          pushB *= EMPUJON_SELF;
+          pushA *= EMPUJON_PUSH;
+        }
+
         a.position.x -= nx * pushA;
         a.position.z -= nz * pushA;
         b.position.x += nx * pushB;
@@ -328,6 +418,15 @@ export function createGame(deps) {
           const fbz = Math.cos(b.heading);
           let dvA = (-jimp * invA) * (nx * fax + nz * faz) * BUMP_TRANSFER;
           let dvB = (jimp * invB) * (nx * fbx + nz * fbz) * BUMP_TRANSFER;
+          // `empujon`: el cambio de velocidad también se reparte a su favor.
+          if (aEmp) {
+            dvA *= EMPUJON_SELF;
+            dvB *= EMPUJON_PUSH;
+          }
+          if (bEmp) {
+            dvB *= EMPUJON_SELF;
+            dvA *= EMPUJON_PUSH;
+          }
           dvA = clamp(dvA, -BUMP_MAX_DV, BUMP_MAX_DV);
           dvB = clamp(dvB, -BUMP_MAX_DV, BUMP_MAX_DV);
           a.speed += dvA;
@@ -337,11 +436,32 @@ export function createGame(deps) {
         a.speed *= 0.98;
         b.speed *= 0.98;
 
+        // `torbellino` (Zuri): con turbo, los rivales que toca salen girando.
+        // Cooldown de 1 s por víctima para no encadenar golpes.
+        if (hasPerk(a, 'torbellino') && a.state.boostTime > 0 && b.state.shieldTime <= 0 && !perkTimers.has(b)) {
+          b.hit('torbellino');
+          perkTimers.set(b, PERK_TORBELLINO_COOLDOWN);
+          game.perkCount += 1;
+          events.emit(PERK_EVENT, { kart: a, victim: b, perk: 'torbellino' });
+        }
+        if (hasPerk(b, 'torbellino') && b.state.boostTime > 0 && a.state.shieldTime <= 0 && !perkTimers.has(a)) {
+          a.hit('torbellino');
+          perkTimers.set(a, PERK_TORBELLINO_COOLDOWN);
+          game.perkCount += 1;
+          events.emit(PERK_EVENT, { kart: b, victim: a, perk: 'torbellino' });
+        }
+
         const key = i * 100 + j;
         if (!bumpTimers.has(key)) {
           bumpTimers.set(key, BUMP_COOLDOWN);
           events.emit(EVENTS.BUMP, { a, b });
           if (game.autotest) game.bumpCount += 1;
+          // Aviso del `empujon` (una vez por choque, con el mismo cooldown del BUMP).
+          if (aEmp !== bEmp) {
+            game.perkCount += 1;
+            if (aEmp) events.emit(PERK_EVENT, { kart: a, victim: b, perk: 'empujon' });
+            else events.emit(PERK_EVENT, { kart: b, victim: a, perk: 'empujon' });
+          }
         }
       }
     }
@@ -485,10 +605,15 @@ export function createGame(deps) {
   function handleInput() {
     input.update();
     const c = input.controls;
+    const touchActive = !!(touch && touch.enabled);
 
+    const wantPause = c.pause || (touchActive && touch.consumePause());
     if (
-      c.pause &&
-      (game.mode === 'race' || game.mode === 'finished' || game.mode === 'countdown')
+      wantPause &&
+      (game.mode === 'race' ||
+        game.mode === 'finished' ||
+        game.mode === 'countdown' ||
+        game.mode === 'intro')
     ) {
       if (game.paused) resume();
       else pause();
@@ -499,6 +624,8 @@ export function createGame(deps) {
     const pc = player.controls;
 
     if (game.mode === 'countdown' || game.mode === 'intro' || game.paused) {
+      // Un toque de OBJETO durante la cuenta atrás no debe dispararse después.
+      if (touchActive) touch.consumeUseItem();
       pc.throttle = 0;
       pc.brake = 0;
       pc.steer = 0;
@@ -515,6 +642,29 @@ export function createGame(deps) {
       pc.steer = c.steer;
       pc.drift = c.drift;
       pc.useItem = c.useItem;
+
+      if (touchActive) {
+        const t = touch.state;
+        if (t.throttle > pc.throttle) pc.throttle = t.throttle;
+        if (t.brake > pc.brake) pc.brake = t.brake;
+        if (Math.abs(t.steer) > Math.abs(pc.steer)) pc.steer = t.steer;
+        if (t.drift) pc.drift = true;
+        if (touch.consumeUseItem()) pc.useItem = true;
+      }
+    }
+  }
+
+  // Muestra los controles táctiles en carrera y los oculta en menús/resultados/pausa.
+  function updateTouchVisibility() {
+    if (!touch || !touch.enabled) return;
+    const active =
+      !game.paused && (game.mode === 'intro' || game.mode === 'countdown' || game.mode === 'race');
+    if (active && !game.touchVisible) {
+      touch.show();
+      game.touchVisible = true;
+    } else if (!active && game.touchVisible) {
+      touch.hide();
+      game.touchVisible = false;
     }
   }
 
@@ -546,7 +696,7 @@ export function createGame(deps) {
     });
   }
 
-  function updateAudio(dt) {
+  function updateAudio() {
     if (game.mode === 'race' || game.mode === 'finished') {
       const p = game.player;
       const ratio = p ? Math.min(1, Math.abs(p.speed) / (p.maxSpeed || 1)) : 0;
@@ -559,8 +709,16 @@ export function createGame(deps) {
   // ---------------------------------------------------------------
   // Bucle
   // ---------------------------------------------------------------
-  function render() {
-    renderer.render(scene, camera);
+  function render(dt) {
+    if (pipeline) {
+      if (game.player) pipeline.setFocus(game.player.position);
+      const target = game.player && game.player.state.boostTime > 0 ? 1 : 0;
+      game.boostSmooth += (target - game.boostSmooth) * Math.min(1, dt * 8);
+      pipeline.setBoost(game.boostSmooth);
+      pipeline.render(dt);
+    } else {
+      renderer.render(scene, camera);
+    }
     game.drawCalls = renderer.info.render.calls;
     if (window.__game) window.__game.drawCalls = game.drawCalls;
   }
@@ -577,7 +735,7 @@ export function createGame(deps) {
 
     if (!game.paused) {
       updateIntroAndCountdown(dt);
-      updateAudio(dt);
+      updateAudio();
 
       if (!game.autotest) {
         game.accumulator += dt;
@@ -594,8 +752,9 @@ export function createGame(deps) {
     if (game.track) game.track.update(dt, game.time);
     if (game.fx) game.fx.update(dt, game.karts);
     if (game.player) game.chase.update(dt, game.player);
+    updateTouchVisibility();
     updateHUD();
-    render();
+    render(dt);
   }
 
   // ---------------------------------------------------------------
@@ -619,6 +778,92 @@ export function createGame(deps) {
     };
   }
 
+  // Registro de eventos del bus (solo autotest): cuenta cada evento y guarda el
+  // `raceTime` de su primera aparición. Además de la clave base se cuentan
+  // variantes con el detalle del payload (`kart:boost:pad`, `kart:hit:torbellino`,
+  // `kart:perk:salida`, `...@player` si el kart es el jugador).
+  const eventCounts = {};
+  const eventFirst = {};
+  function logEvent(key) {
+    eventCounts[key] = (eventCounts[key] || 0) + 1;
+    if (!(key in eventFirst)) eventFirst[key] = game.raceTime;
+  }
+  function installEventLog() {
+    const names = new Set([...Object.values(EVENTS), PERK_EVENT]);
+    for (const name of names) {
+      events.on(name, (payload) => {
+        logEvent(name);
+        if (!payload) return;
+        const detail = payload.perk || payload.by || payload.source;
+        if (typeof detail === 'string') logEvent(`${name}:${detail}`);
+        if (payload.kart && payload.kart.isPlayer) {
+          logEvent(`${name}@player`);
+          if (typeof detail === 'string') logEvent(`${name}:${detail}@player`);
+        }
+      });
+    }
+  }
+
+  // Desglose de draw calls de un frame (solo autotest). Renderiza varias veces
+  // el frame actual midiendo `renderer.info` y deja en pantalla el frame normal:
+  //   sceneMain: escena sin actualizar sombras · shadow: mapa(s) de sombra
+  //   total: frame completo del pipeline · passes: llamadas por pase del composer.
+  function measureDrawCalls() {
+    const info = renderer.info;
+    const prevAuto = info.autoReset;
+    const sm = renderer.shadowMap;
+    const prevSmAuto = sm.autoUpdate;
+    info.autoReset = false;
+
+    sm.autoUpdate = false;
+    sm.needsUpdate = false;
+    info.reset();
+    renderer.render(scene, camera);
+    const sceneMain = info.render.calls;
+    sm.autoUpdate = prevSmAuto;
+
+    info.reset();
+    renderer.render(scene, camera);
+    const sceneWithShadow = info.render.calls;
+
+    const passes = [];
+    const composer = pipeline && pipeline.quality !== 'low' ? pipeline.composer : null;
+    const restore = [];
+    if (composer) {
+      for (const pass of composer.passes) {
+        const orig = pass.render;
+        const name = passName(pass);
+        const entry = { name, calls: 0 };
+        passes.push(entry);
+        pass.render = function measured(...args) {
+          const before = info.render.calls;
+          const r = orig.apply(this, args);
+          entry.calls += info.render.calls - before;
+          return r;
+        };
+        restore.push(() => {
+          pass.render = orig;
+        });
+      }
+    }
+    if (pipeline) pipeline.render(1 / 60);
+    else {
+      info.reset();
+      renderer.render(scene, camera);
+    }
+    const total = info.render.calls;
+    for (const fn of restore) fn();
+    info.autoReset = prevAuto;
+    return {
+      quality: pipeline ? pipeline.quality : 'none',
+      sceneMain,
+      shadow: sceneWithShadow - sceneMain,
+      scene: sceneWithShadow,
+      total,
+      passes,
+    };
+  }
+
   function parseAutotest() {
     if (typeof window === 'undefined' || !window.location) return;
     const params = new URLSearchParams(window.location.search);
@@ -626,14 +871,26 @@ export function createGame(deps) {
       game.autotest = true;
       const id = params.get('track');
       if (id && TRACK_IDS.includes(id)) game.autotestTrack = id;
+      const ch = params.get('char');
+      if (ch) game.autotestChar = ch;
+    }
+    // Semilla fija en autotest (`?seed=` opcional) para reproducir los rivales.
+    const seedParam = params.get('seed');
+    if (seedParam != null && seedParam !== '') {
+      const n = Number(seedParam);
+      game.rng = makeRng(Number.isFinite(n) ? n : hashString(seedParam));
+    } else if (game.autotest) {
+      game.rng = makeRng(0xc0ffee);
     }
   }
 
   function start() {
     parseAutotest();
     if (game.autotest) {
-      game.playerCharacter = CHARACTERS[0];
+      game.playerCharacter =
+        CHARACTERS.find((c) => c.id === game.autotestChar) || CHARACTERS[0];
       const def = TRACKS.find((t) => t.id === game.autotestTrack) || TRACKS[0];
+      installEventLog();
       window.__game = {
         get state() {
           return game.mode;
@@ -653,7 +910,30 @@ export function createGame(deps) {
         get bumps() {
           return game.bumpCount;
         },
+        get perks() {
+          return game.perkCount;
+        },
+        get player() {
+          return game.player;
+        },
+        get quality() {
+          return pipeline ? pipeline.quality : 'none';
+        },
+        // Pipeline de render (diagnóstico: pases del composer, resolución dinámica).
+        get pipeline() {
+          return pipeline || null;
+        },
+        // El bus solo se expone en autotest para que las pruebas cuenten eventos.
+        events,
+        eventCounts,
+        eventFirst,
+        // Draw calls del ÚLTIMO frame completo (escena + sombras + postprocesado).
         drawCalls: 0,
+        measureDrawCalls,
+        setQuality(q) {
+          if (pipeline) pipeline.setQuality(q);
+          return pipeline ? pipeline.quality : 'none';
+        },
         simulate,
       };
       startRace(def, { skipIntro: true });

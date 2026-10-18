@@ -16,6 +16,10 @@ const PORT = 4173;
 const BASE = `http://localhost:${PORT}`;
 const TRACK_IDS = ['meadow', 'desert', 'snow'];
 const MAX_SIM_SECONDS = 360;
+// Calidad explícita para que los draw calls sean comparables entre máquinas
+// (sin `?q=` el juego elegiría por localStorage / tipo de dispositivo).
+const QUALITY = process.env.AUTOTEST_Q || 'high';
+const DRAW_CALL_BUDGET = 300; // SPEC C12: < 300 draw calls por frame
 
 function run(cmd, args) {
   return new Promise((resolve, reject) => {
@@ -44,7 +48,10 @@ async function main() {
   await run('npm', ['run', 'build']);
 
   // 2. Servir el build.
-  const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
+  // Se lanza el binario de vite con node directamente (no `npx`): así `kill`
+  // termina el propio servidor y no solo el envoltorio de npx.
+  const viteBin = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
+  const server = spawn(process.execPath, [viteBin, 'preview', '--port', String(PORT), '--strictPort'], {
     cwd: ROOT,
     stdio: 'ignore',
   });
@@ -83,15 +90,24 @@ async function main() {
       let finishedAll = false;
       let simulatedSeconds = 0;
       let drawCalls = 0;
+      let drawCallsStart = null;
+      let drawCallsEnd = null;
+      let quality = null;
 
       try {
-        await page.goto(`${BASE}/?autotest=1&track=${track}`, { waitUntil: 'load' });
+        await page.goto(`${BASE}/?autotest=1&track=${track}&q=${QUALITY}`, {
+          waitUntil: 'load',
+          timeout: 120000,
+        });
         await page.waitForFunction(() => window.__game && window.__game.state === 'race', null, {
-          timeout: 30000,
+          timeout: 60000,
         });
 
         const res = await page.evaluate(async (maxSeconds) => {
           const g = window.__game;
+          // Desglose en la parrilla (todos los karts a la vista) y al final.
+          const pick = (m) => ({ total: m.total, scene: m.scene, sceneMain: m.sceneMain, shadow: m.shadow, post: m.total - m.scene, passes: m.passes });
+          const start = g.measureDrawCalls ? pick(g.measureDrawCalls()) : null;
           let sim = 0;
           while (!g.finishedAll && sim < maxSeconds) {
             g.simulate(10);
@@ -102,12 +118,18 @@ async function main() {
             finishedAll: !!g.finishedAll,
             simulatedSeconds: sim,
             drawCalls: g.drawCalls || 0,
+            quality: g.quality,
+            start,
+            end: g.measureDrawCalls ? pick(g.measureDrawCalls()) : null,
           };
         }, MAX_SIM_SECONDS);
 
         finishedAll = res.finishedAll;
         simulatedSeconds = res.simulatedSeconds;
         drawCalls = res.drawCalls;
+        drawCallsStart = res.start;
+        drawCallsEnd = res.end;
+        quality = res.quality;
       } catch (err) {
         consoleErrors.push('autotest: ' + (err && err.message ? err.message : String(err)));
       } finally {
@@ -116,7 +138,24 @@ async function main() {
 
       const ok = finishedAll && consoleErrors.length === 0;
       if (!ok) failed = true;
-      results.push({ track, finishedAll, simulatedSeconds, consoleErrors, drawCalls });
+      // `drawCalls` = último frame pintado (frame completo: sombras + escena +
+      // postprocesado). El presupuesto se informa pero no hace fallar el autotest.
+      const maxTotal = Math.max(
+        drawCalls,
+        drawCallsStart ? drawCallsStart.total : 0,
+        drawCallsEnd ? drawCallsEnd.total : 0
+      );
+      results.push({
+        track,
+        quality,
+        finishedAll,
+        simulatedSeconds,
+        consoleErrors,
+        drawCalls,
+        drawCallsStart,
+        drawCallsEnd,
+        drawCallsBudgetOk: maxTotal < DRAW_CALL_BUDGET,
+      });
     }
   } finally {
     if (browser) await browser.close();

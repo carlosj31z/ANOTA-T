@@ -2,7 +2,10 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"
+    />
     <title>Rally Relámpago</title>
     <style>
       html,
@@ -13,6 +16,11 @@
         height: 100%;
         overflow: hidden;
         background: #000;
+        touch-action: none;
+        overscroll-behavior: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
       }
       #app {
         position: fixed;
