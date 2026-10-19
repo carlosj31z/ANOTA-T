@@ -1,0 +1,178 @@
+<title>Informe Rally Relámpago</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una columna de lectura (~70ch) con tablas a ancho completo; cabecera tipo parrilla de salida con franja a cuadros. */
+:root {
+  --bg: #f6f5f2; --surface: #ffffff; --fg: #1b1d24; --muted: #5b5f6b; --line: #dcdad3;
+  --accent: #d9480f; --accent-ink: #ffffff;
+  --ok: #1f7a4d; --ok-bg: #e3f3ea; --warn: #8a5a00; --warn-bg: #fbf0d6; --bad: #b42318; --bad-bg: #fde7e4;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14161b; --surface: #1c1f26; --fg: #ecebe7; --muted: #a4a7b0; --line: #2e323b;
+  --accent: #ff7a3d; --accent-ink: #14161b;
+  --ok: #6fd3a0; --ok-bg: #173226; --warn: #f2c25b; --warn-bg: #352a12; --bad: #ff8a7a; --bad-bg: #3a1a17; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #14161b; --surface: #1c1f26; --fg: #ecebe7; --muted: #a4a7b0; --line: #2e323b;
+  --accent: #ff7a3d; --accent-ink: #14161b;
+  --ok: #6fd3a0; --ok-bg: #173226; --warn: #f2c25b; --warn-bg: #352a12; --bad: #ff8a7a; --bad-bg: #3a1a17; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 17px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+.wrap { max-width: 980px; margin: 0 auto; }
+.prose { max-width: 70ch; }
+header { padding-block: 40px 28px; border-bottom: 2px solid var(--fg); margin-bottom: 8px; position: relative; }
+.flag { height: 14px; margin-bottom: 28px; background-image: conic-gradient(var(--fg) 25%, transparent 0 50%, var(--fg) 0 75%, transparent 0); background-size: 14px 14px; opacity: .85; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--display); font-weight: 800; font-size: clamp(36px, 7vw, 64px); line-height: 1.02; margin: 8px 0 12px; text-wrap: balance; letter-spacing: -.02em; }
+h1 em { font-style: normal; color: var(--accent); }
+h2 { font-family: var(--display); font-weight: 800; font-size: 26px; margin: 48px 0 12px; text-wrap: balance; }
+h3 { font-family: var(--display); font-weight: 600; font-size: 19px; margin: 24px 0 6px; }
+p { margin: 0 0 12px; }
+.lede { font-size: 19px; color: var(--muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 18px; font-family: var(--mono); font-size: 13px; }
+.facts b { font-weight: 600; color: var(--fg); }
+.facts span { color: var(--muted); }
+.mark { display: inline-block; font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; vertical-align: 1px; }
+.ok { color: var(--ok); background: var(--ok-bg); } .warn { color: var(--warn); background: var(--warn-bg); } .bad { color: var(--bad); background: var(--bad-bg); }
+.table-scroll { overflow-x: auto; margin: 12px 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+code, kbd { font-family: var(--mono); font-size: .86em; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; background: var(--surface); }
+ul { padding-left: 1.2em; margin: 0 0 12px; } li { margin: 4px 0; }
+.defect { border-left: 3px solid var(--bad); padding: 4px 0 4px 14px; margin: 14px 0; }
+.defect.fixed { border-left-color: var(--ok); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px 32px; }
+.two > div { min-width: 0; }
+.note { font-size: 15px; color: var(--muted); }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="flag" aria-hidden="true"></div>
+  <div class="eyebrow">Informe de ronda · kart-racer/ · rama claude/clever-knuth-i49kop</div>
+  <h1>Rally <em>Relámpago</em></h1>
+  <p class="lede prose">Juego de karts arcade 3D para PC (navegador) y Android, construido por agentes que dirigí como orquestador y revisor: DeepSeek 4.1 vía OpenCode mientras estuvo disponible, y subagentes Claude después. Yo no escribí código del juego: fijé el SPEC, el contrato y los briefs, y verifiqué cada entrega.</p>
+  <div class="facts">
+    <div><b>11</b> <span>pilotos con ventaja propia</span></div>
+    <div><b>3</b> <span>circuitos</span></div>
+    <div><b>6</b> <span>objetos de los cubos mágicos</span></div>
+    <div><b>54</b> <span>archivos en src/</span></div>
+    <div><b>~19 900</b> <span>líneas añadidas</span></div>
+    <div><b>13</b> <span>commits de la ronda</span></div>
+  </div>
+</header>
+
+<section class="prose">
+  <h2>Cómo leer esto</h2>
+  <p>Cada afirmación lleva una marca: <span class="mark ok">Comprobado</span> lo verifiqué yo con una prueba o una medida; <span class="mark warn">Sin verificar</span> lo afirma un agente y no lo reproduje; <span class="mark bad">Defecto</span> es un fallo encontrado, con su estado. Hay una sección dedicada a lo que no se pudo comprobar.</p>
+</section>
+
+<section>
+  <h2>Cómo jugar</h2>
+  <div class="two">
+    <div>
+      <h3>En PC</h3>
+      <ul>
+        <li><code>cd kart-racer &amp;&amp; npm install &amp;&amp; npm run dev</code>, y abre la dirección que muestra (puerto 5174).</li>
+        <li><kbd>↑</kbd>/<kbd>W</kbd> acelerar · <kbd>↓</kbd>/<kbd>S</kbd> frenar y marcha atrás · <kbd>←</kbd><kbd>→</kbd>/<kbd>A</kbd><kbd>D</kbd> girar.</li>
+        <li><kbd>Espacio</kbd>/<kbd>Shift</kbd> mantenido en curva: saltito y derrape. Mantenlo hasta ver chispas azules, naranjas y moradas, y suelta para el mini-turbo.</li>
+        <li><kbd>E</kbd>/<kbd>Ctrl</kbd>/<kbd>X</kbd> usar objeto · <kbd>Esc</kbd>/<kbd>P</kbd> pausa.</li>
+        <li>Mando: RT/A acelera, LT/B frena, stick o cruceta gira, RB derrapa, X/LB objeto, Start pausa. Los menús también se manejan con el mando.</li>
+        <li>Calidad gráfica en el título (Bajo, Alto, Ultra) o con <code>?q=ultra</code> en la URL.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>En Android</h3>
+      <ul>
+        <li>Copia <code>kart-racer/apk/rally-relampago-debug.apk</code> al móvil, actívale «instalar apps de origen desconocido» al gestor de archivos y ábrelo.</li>
+        <li>Se juega en horizontal y a pantalla completa. Acelerador automático activado (botón AUTO para quitarlo).</li>
+        <li>Mitad izquierda: arrastra para girar. Derecha: DERRAPE (mantener), FRENO, OBJETO. Pausa arriba a la izquierda.</li>
+        <li>Para regenerarlo: <code>npm run apk</code> (instala el SDK de Android si falta).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Qué se construyó</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Bloque</th><th>Qué hace</th><th>Quién</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>Fundación y núcleo</td><td>Máquina de estados, vueltas y posiciones, choques por masa, pausa, autotest, integración de render, táctil y ventajas</td><td>DeepSeek → Claude</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Circuitos</td><td>Prado Turbo, Dunas Doradas y Cumbre Helada: cielo atmosférico, terreno suave, rampas, placas de turbo, 12 cajas por circuito</td><td>DeepSeek → Claude</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Kart y pilotos</td><td>11 pilotos orgánicos con 7 expresiones faciales, física arcade, derrape de 3 niveles</td><td>DeepSeek → Claude</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>IA</td><td>7 rivales con línea de carrera, derrapes, uso de objetos y recuperación</td><td>DeepSeek</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Objetos</td><td>Cubos de cristal flotantes con ruleta; turbo, cáscara, rebotador, buscador, escudo y tormenta</td><td>DeepSeek</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Audio</td><td>5 temas originales y 23 efectos, todo sintetizado con Web Audio</td><td>DeepSeek</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Interfaz</td><td>Título, selección con estadísticas y ventaja, miniaturas reales de circuito, HUD, minimapa, podio</td><td>DeepSeek</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Efectos y cámara</td><td>Chispas, llamas, polvo, estrellas, confeti, aura de Kenzo, torbellino de Zuri, cámara de persecución</td><td>DeepSeek</td><td><span class="mark warn">Sin verificar</span> en detalle; visto en capturas</td></tr>
+      <tr><td>Render</td><td>Bloom, corrección de color y SMAA en Alto; GTAO añadido en Ultra; sombras que siguen al jugador; resolución dinámica</td><td>DeepSeek → Claude</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>Táctil</td><td>Volante virtual, botones y acelerador automático solo en móvil</td><td>DeepSeek → Claude</td><td><span class="mark ok">Comprobado</span> en móvil simulado</td></tr>
+      <tr><td>Android</td><td>Proyecto Capacitor 8, icono propio, horizontal inmersivo, APK de depuración</td><td>DeepSeek</td><td><span class="mark ok">Comprobado</span> con aapt2</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Qué encontró la verificación</h2>
+  <p class="prose">Una revisión adversarial independiente intentó demostrar que el juego no cumplía cada uno de los 19 criterios del SPEC. Devolvió el trabajo con 3 defectos graves, ya corregidos y comprobados:</p>
+  <div class="defect fixed prose"><p><span class="mark ok">Corregido</span> <b>Giro invertido.</b> El teclado, el mando y el táctil daban +1 a la derecha y el kart lo interpretaba como izquierda. El autotest no lo veía porque la IA conduce con la convención del kart. Fue en parte un hueco mío: el contrato fijó el sentido del rumbo pero no el signo de <code>steer</code>. Ahora → desplaza el kart +5,1 m a la derecha y ← −4,9 m a la izquierda.</p></div>
+  <div class="defect fixed prose"><p><span class="mark ok">Corregido</span> <b>Ventaja de Nieve casi nula.</b> Fuera de pista solo ganaba un 3 %. Ahora mantiene 23,7 m/s frente a 15,3 m/s del resto.</p></div>
+  <div class="defect fixed prose"><p><span class="mark ok">Corregido</span> <b>APK desactualizado</b>, sin controles táctiles ni postprocesado. Se ha recompilado con la versión final.</p></div>
+  <p class="prose">Antes de esa revisión, mis propias capturas ya habían encontrado y devuelto otros: suelo verde en el desierto y la nieve, colinas y montañas facetadas, orejas del conejo flotando, la cara de la rana tapada, Zuri que parecía un oso, CPU que pasaban el 19 % del tiempo fuera de pista (ahora entre el 1,8 % y el 4,6 %) y la calidad Alta por encima de 300 draw calls (ahora 214–253).</p>
+</section>
+
+<section>
+  <h2>Comprobado y sin comprobar</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Criterio</th><th>Evidencia</th><th>Marca</th></tr></thead>
+    <tbody>
+      <tr><td>C1 build</td><td>Exit 0 en una copia limpia, sin node_modules</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>C2 sin errores</td><td>Flujo real título → resultados con teclado, ratón y toques: 0 errores</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>C7 carrera completa</td><td>Los 8 karts terminan en los 3 circuitos en 105–130 s simulados</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>C12 rendimiento</td><td>No se pueden medir fps reales (sin GPU, 0,1–4 fps). Alternativa del SPEC: Alto 214–253 draw calls, por debajo de 300. Ultra 339–347, por encima, pero es opcional</td><td><span class="mark ok">Comprobado</span> (vía alternativa)</td></tr>
+      <tr><td>C15 ventajas</td><td>Las 11 medidas en simulación (Luna, Bolt, Mishi, Rex, Rayo, Kenzo, Max, Bruno, Zuri, Pipa y Nieve tras el arreglo)</td><td><span class="mark ok">Comprobado</span></td></tr>
+      <tr><td>C13 originalidad</td><td>0 apariciones de nombres de franquicias en el código. Riesgo anotado: Max y algunos objetos evocan el arquetipo del género</td><td><span class="mark warn">Riesgo</span></td></tr>
+      <tr><td>Fps en un móvil real</td><td>No hay dispositivo Android aquí; el APK se inspeccionó, pero no se ejecutó</td><td><span class="mark warn">Sin verificar</span></td></tr>
+      <tr><td>Sonido escuchado</td><td>Las canciones tienen señal y son distintas entre sí, pero nadie las ha escuchado con oídos</td><td><span class="mark warn">Sin verificar</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="note prose">Para cerrar lo que falta: instalar el APK en un móvil Android 7 o superior, jugar una carrera completa con sonido y anotar los fps, y probar en un PC con GPU real la calidad Ultra.</p>
+</section>
+
+<section class="prose">
+  <h2>Qué costó</h2>
+  <p><b>Tokens:</b> los subagentes Claude consumieron unos 1,24 M tokens medidos (escenarios 220 k, personajes 274 k, núcleo 172 k, render 138 k, verificación 298 k, correcciones 144 k). Los agentes DeepSeek corrieron en el nivel gratuito de OpenCode, que no informa de tokens. No doy una cifra en dinero: no sé qué mide exactamente el contador ni incluye mi propio contexto de orquestador.</p>
+  <p><b>Tiempo:</b> unas 10 horas de cómputo de agentes DeepSeek repartidas en 22 ejecuciones, más unas 5 horas de subagentes Claude. El camino crítico real lo marcaron la orquestación y los cortes externos, no los agentes.</p>
+</section>
+
+<section class="prose">
+  <h2>Qué queda en tus manos</h2>
+  <ul>
+    <li>Probar el APK en tu móvil y decirme qué tal va.</li>
+    <li>Decidir si quieres publicarlo. Para una tienda hace falta una firma de release (la actual es de depuración) y conviene una revisión legal por el parecido de Max y de algunos objetos con un clásico del género.</li>
+    <li>Abrir un pull request de la rama cuando quieras integrarlo.</li>
+  </ul>
+</section>
+
+<section class="prose">
+  <h2>Lecciones de proceso</h2>
+  <ul>
+    <li><b>Los briefs no van en la línea de comandos.</b> Un agente hizo <code>pkill -f vite</code> y mató a los demás porque su brief contenía la palabra «vite». Desde entonces van en archivo adjunto.</li>
+    <li><b>El nivel gratuito no aguanta una ronda grande.</b> Con 7 a 10 agentes en paralelo, OpenCode bloqueó la IP por «tráfico abusivo» y algunos agentes se colgaron en silencio. Hizo falta un vigilante de inactividad y, al final, cambiar a Claude.</li>
+    <li><b>La autoverificación no ve lo que comparte con el sistema.</b> El giro invertido pasó todos los autotest porque la IA y el kart compartían la misma convención. Solo una prueba con teclado real lo destapó.</li>
+    <li><b>Un contrato debe fijar signos, no solo nombres.</b> <code>steer: -1..1</code> sin decir qué lado es positivo costó una ronda de corrección.</li>
+  </ul>
+</section>
+</div>
