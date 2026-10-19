@@ -111,10 +111,12 @@ export function createUI(root, opts = {}) {
   }
 
   // ---------------------------------------------------------------
-  // Teclado de menús (solo activo cuando hay un menú visible)
+  // Teclado y mando de menús (solo activo cuando hay un menú visible)
+  // El mando se traduce a los mismos `code` de teclado y pasa por el MISMO
+  // manejador (`menuHandler`), sin duplicar lógica.
   // ---------------------------------------------------------------
-  function onMenuKey(e) {
-    if (!menuHandler) return;
+  function runMenuHandler(e) {
+    if (!menuHandler) return false;
     let handled = false;
     try {
       handled = menuHandler(e);
@@ -125,15 +127,111 @@ export function createUI(root, opts = {}) {
       e.preventDefault();
       e.stopPropagation();
     }
+    return handled;
   }
 
-  function setMenu(handler) {
+  function onMenuKey(e) {
+    runMenuHandler(e);
+  }
+
+  const PAD_POLL_MS = 40; // sondeo del mando
+  const PAD_REPEAT_MS = 180; // repetición de dirección mantenida
+  const PAD_AXIS = 0.55; // umbral del stick
+  let padTimer = null;
+  let padPressed = null; // entradas activas en el sondeo anterior (Map nombre -> {nextAt})
+  let padLocked = null; // entradas ya mantenidas al abrir el menú: exigen soltar primero
+  let padStartEnter = true; // Start actúa como Enter (la pausa lo gestiona el juego)
+
+  const PAD_CODE = {
+    left: 'ArrowLeft',
+    right: 'ArrowRight',
+    up: 'ArrowUp',
+    down: 'ArrowDown',
+    a: 'Enter',
+    start: 'Enter',
+    b: 'Escape',
+  };
+  const PAD_REPEATS = new Set(['left', 'right', 'up', 'down']);
+
+  function readPadInputs() {
+    const active = new Set();
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return active;
+    let pads = null;
+    try {
+      pads = navigator.getGamepads();
+    } catch (err) {
+      return active;
+    }
+    if (!pads) return active;
+    for (const gp of pads) {
+      if (!gp || !gp.connected) continue;
+      const btn = (i) => !!(gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
+      const ax = gp.axes || [];
+      if (btn(14) || (ax[0] || 0) < -PAD_AXIS) active.add('left');
+      if (btn(15) || (ax[0] || 0) > PAD_AXIS) active.add('right');
+      if (btn(12) || (ax[1] || 0) < -PAD_AXIS) active.add('up');
+      if (btn(13) || (ax[1] || 0) > PAD_AXIS) active.add('down');
+      if (btn(0)) active.add('a');
+      if (btn(1)) active.add('b');
+      if (padStartEnter && btn(9)) active.add('start');
+      break; // primer mando conectado
+    }
+    return active;
+  }
+
+  function pollPad() {
+    if (!menuHandler) {
+      stopPadPoll();
+      return;
+    }
+    const now = performance.now();
+    const pressedRef = padPressed;
+    const active = readPadInputs();
+    for (const name of [...padLocked]) if (!active.has(name)) padLocked.delete(name);
+    for (const name of [...padPressed.keys()]) if (!active.has(name)) padPressed.delete(name);
+    for (const name of active) {
+      if (padLocked.has(name)) continue;
+      const st = padPressed.get(name);
+      if (!st) {
+        // Flanco de subida (A/B/Start) o primer paso inmediato de una dirección.
+        padPressed.set(name, { nextAt: now + PAD_REPEAT_MS });
+      } else if (PAD_REPEATS.has(name) && now >= st.nextAt) {
+        st.nextAt = now + PAD_REPEAT_MS;
+      } else {
+        continue;
+      }
+      runMenuHandler({ code: PAD_CODE[name], repeat: false, preventDefault() {}, stopPropagation() {} });
+      if (!menuHandler || padPressed !== pressedRef) return; // el manejador cambió de menú
+    }
+  }
+
+  function startPadPoll() {
+    stopPadPoll();
+    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
+    padPressed = new Map();
+    padLocked = readPadInputs(); // lo que ya está pulsado al abrir el menú no cuenta
+    padTimer = setInterval(pollPad, PAD_POLL_MS);
+  }
+
+  function stopPadPoll() {
+    if (padTimer) {
+      clearInterval(padTimer);
+      padTimer = null;
+    }
+    padPressed = null;
+    padLocked = null;
+  }
+
+  function setMenu(handler, menuOpts = {}) {
     removeMenu();
     menuHandler = handler;
+    padStartEnter = menuOpts.padStart !== false;
     window.addEventListener('keydown', onMenuKey, true);
+    startPadPoll();
   }
 
   function removeMenu() {
+    stopPadPoll();
     if (menuHandler) {
       menuHandler = null;
       window.removeEventListener('keydown', onMenuKey, true);
@@ -782,7 +880,7 @@ export function createUI(root, opts = {}) {
         default:
           return false;
       }
-    });
+    }, { padStart: false }); // Start (pausa) lo gestiona el juego: evita reanudar y re-pausar a la vez
   }
 
   // ---------------------------------------------------------------

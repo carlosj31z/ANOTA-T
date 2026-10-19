@@ -651,6 +651,10 @@ export function createGame(deps) {
         if (t.drift) pc.drift = true;
         if (touch.consumeUseItem()) pc.useItem = true;
       }
+
+      // controls.steer: +1 = izquierda (convención del kart y la IA); el input
+      // humano (teclado/mando/táctil) da +1 = derecha y se niega aquí, una sola vez.
+      pc.steer = -pc.steer;
     }
   }
 
@@ -935,6 +939,18 @@ export function createGame(deps) {
           return pipeline ? pipeline.quality : 'none';
         },
         simulate,
+        // Solo autotest: quita (true) o restaura (false) el driver IA del jugador
+        // para poder probar el control humano (teclado) en pruebas automáticas.
+        setPlayerManual(manual = true) {
+          const p = game.player;
+          if (!p) return false;
+          if (manual) {
+            game.drivers.delete(p);
+          } else if (!game.drivers.has(p)) {
+            game.drivers.set(p, createAIDriver(p, game.track, { skill: 0.8 }));
+          }
+          return !game.drivers.has(p);
+        },
       };
       startRace(def, { skipIntro: true });
     } else {

@@ -393,8 +393,10 @@ export function createKart(scene, character, opts = {}) {
     const w = character.stats.weight;
     speed *= clamp(0.55 - w * 0.05, 0.25, 0.55);
     lat *= 0.3;
-    surpriseTimer = 0.45;
-    angryTimer = 1.5;
+    // 'sorprendido' los primeros ~0.4 s del giro, luego 'mareado', y 'enfadado'
+    // ~1.5 s DESPUÉS del giro (el temporizador corre a la vez que el spin).
+    surpriseTimer = 0.4;
+    angryTimer = state.spinTime + 1.5;
     lookBackTimer = Math.max(lookBackTimer, 1.1); // mira atrás por quién le golpeó
     emit(EVENTS.HIT, { kart, by });
   }
@@ -502,8 +504,8 @@ export function createKart(scene, character, opts = {}) {
 
   // --- Expresión objetivo (automática desde el estado) ---
   function autoExpression() {
-    if (state.spinTime > 0) return 'mareado';
     if (surpriseTimer > 0) return 'sorprendido';
+    if (state.spinTime > 0) return 'mareado';
     if (angryTimer > 0) return 'enfadado';
     if (celebrating) return 'eufórico';
     if (euphoriaTimer > 0) return 'eufórico';
@@ -773,7 +775,8 @@ export function createKart(scene, character, opts = {}) {
     // Rozamiento (rodadura baja, offroad alta).
     let drag = 1.7;
     if (throttling || state.boostTime > 0) drag = 0.35;
-    if (proj.surface === 'offroad' && state.boostTime <= 0) drag += 0.7;
+    // patinador: además del tope, el arrastre extra fuera de pista se reduce a la mitad.
+    if (proj.surface === 'offroad' && state.boostTime <= 0) drag += perkPatinador ? 0.35 : 0.7;
     speed -= speed * drag * dt;
     if (Math.abs(speed) < 0.04 && !throttling && !braking && state.boostTime <= 0 && !spinning) {
       speed = 0;
