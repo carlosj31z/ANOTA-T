@@ -80,19 +80,27 @@
   pointer-events: none;
 }
 
-/* Pausa — arriba centro-derecha (no tapa las vueltas). */
+/* Pausa — esquina superior izquierda, justo debajo de la casilla de objeto del
+   HUD (que mide clamp(60px, 11vh, 116px), o clamp(42px, 13vh, 64px) en pantallas
+   bajas). No tapa cronómetro (centro), vueltas ni minimapa (derecha). */
+.tc-root {
+  --tc-hud-pad: clamp(12px, 2.4vh, 30px);
+  --tc-item: clamp(60px, 11vh, 116px);
+}
+
+@media (max-height: 520px) {
+  .tc-root {
+    --tc-item: clamp(42px, 13vh, 64px);
+  }
+}
+
 .tc-pause {
   position: absolute;
-  top: max(clamp(10px, 2.2vh, 26px), env(safe-area-inset-top));
-  left: 64%;
-  transform: translateX(-50%);
+  top: calc(max(var(--tc-hud-pad), env(safe-area-inset-top)) + var(--tc-item) + 8px);
+  left: max(var(--tc-hud-pad), env(safe-area-inset-left));
   width: clamp(64px, 13vmin, 88px);
   height: clamp(64px, 13vmin, 88px);
   border-radius: 30%;
-}
-
-.tc-pause.active {
-  transform: translateX(-50%) scale(0.9);
 }
 
 /* ------------------------------------------------------ volante izquierdo -- */
@@ -100,9 +108,9 @@
 .tc-pad {
   position: absolute;
   left: 0;
-  top: 34%;
+  top: 38%;
   width: 46%;
-  height: 66%;
+  height: 62%;
   pointer-events: auto;
 }
 
@@ -183,7 +191,10 @@
 
 /* `--tc-reserve` = espacio medido del HUD que hay en la esquina inferior derecha
    (minimapa/posición en escritorio). Si el HUD se recoloca arriba en táctil,
-   queda a 0 y el bloque ocupa la esquina. */
+   queda a 0 y el bloque ocupa la esquina.
+   OBJETO va en la columna izquierda (sobre FRENO) y AUTO sobre DERRAPE: así el
+   botón de objeto no queda pegado bajo el indicador de posición (columna
+   derecha del HUD). */
 .tc-actions {
   position: absolute;
   right: calc(var(--tc-reserve, 0px) + var(--tc-pad));
@@ -192,7 +203,7 @@
   grid-template-columns: auto auto;
   grid-template-areas:
     'accel accel'
-    'auto object'
+    'object autobtn'
     'brake drift';
   gap: var(--tc-gap);
   align-items: end;
@@ -253,7 +264,7 @@
 }
 
 .tc-auto {
-  grid-area: auto;
+  grid-area: autobtn;
   width: clamp(58px, 17vmin, 104px);
   height: clamp(30px, 9vmin, 54px);
   border-radius: 999px;

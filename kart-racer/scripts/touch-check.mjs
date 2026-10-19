@@ -85,7 +85,7 @@ async function main() {
       consoleErrors.push('pageerror: ' + (err && err.message ? err.message : String(err)))
     );
 
-    await page.goto(`${BASE}/?autotest=1&track=meadow`, { waitUntil: 'load' });
+    await page.goto(`${BASE}/?autotest=1&track=meadow&q=low`, { waitUntil: 'load' });
 
     // Espera (con tolerancia) a la carrera para que el HUD esté montado.
     try {
@@ -144,8 +144,8 @@ async function main() {
     // --- volante + derrape simultáneos (multitáctil) ---
     const multitouch = await page.evaluate(() => {
       const tc = window.__tc;
-      const pad = document.querySelector('.tc-pad');
-      const drift = document.querySelector('.tc-drift');
+      const pad = window.__tc.element.querySelector('.tc-pad');
+      const drift = window.__tc.element.querySelector('.tc-drift');
       window.__pt(pad, 'pointerdown', 11, 0, 0);
       window.__pt(pad, 'pointermove', 11, 70, 0);
       window.__pt(drift, 'pointerdown', 12, 0, 0);
@@ -155,7 +155,7 @@ async function main() {
     checks.derrape_multitouch = multitouch.drift === true;
 
     const steerLeft = await page.evaluate(() => {
-      const pad = document.querySelector('.tc-pad');
+      const pad = window.__tc.element.querySelector('.tc-pad');
       const tc = window.__tc;
       window.__pt(pad, 'pointermove', 11, -140, 0);
       return tc.state.steer;
@@ -163,10 +163,10 @@ async function main() {
     checks.steer_izquierda = steerLeft < -0.3;
 
     const steerRelease = await page.evaluate(() => {
-      const pad = document.querySelector('.tc-pad');
+      const pad = window.__tc.element.querySelector('.tc-pad');
       const tc = window.__tc;
       window.__pt(pad, 'pointerup', 11, 0, 0);
-      window.__pt(document.querySelector('.tc-drift'), 'pointerup', 12, 0, 0);
+      window.__pt(window.__tc.element.querySelector('.tc-drift'), 'pointerup', 12, 0, 0);
       return { steer: tc.state.steer, drift: tc.state.drift };
     });
     checks.steer_neutro_al_soltar = steerRelease.steer === 0;
@@ -175,7 +175,7 @@ async function main() {
     // --- freno ---
     const brake = await page.evaluate(() => {
       const tc = window.__tc;
-      const brake = document.querySelector('.tc-brake');
+      const brake = window.__tc.element.querySelector('.tc-brake');
       window.__pt(brake, 'pointerdown', 13, 0, 0);
       const held = { brake: tc.state.brake, throttle: tc.state.throttle };
       window.__pt(brake, 'pointerup', 13, 0, 0);
@@ -187,7 +187,7 @@ async function main() {
     // --- objeto (flanco) ---
     const object = await page.evaluate(() => {
       const tc = window.__tc;
-      const obj = document.querySelector('.tc-object');
+      const obj = window.__tc.element.querySelector('.tc-object');
       window.__pt(obj, 'pointerdown', 14, 0, 0);
       window.__pt(obj, 'pointerup', 14, 0, 0);
       return { first: tc.consumeUseItem(), second: tc.consumeUseItem() };
@@ -197,7 +197,7 @@ async function main() {
     // --- pausa (flanco) ---
     const pause = await page.evaluate(() => {
       const tc = window.__tc;
-      const btn = document.querySelector('.tc-pause');
+      const btn = window.__tc.element.querySelector('.tc-pause');
       window.__pt(btn, 'pointerdown', 15, 0, 0);
       window.__pt(btn, 'pointerup', 15, 0, 0);
       return { first: tc.consumePause(), second: tc.consumePause() };
@@ -207,15 +207,15 @@ async function main() {
     // --- AUTO off + GAS ---
     const autoOff = await page.evaluate(() => {
       const tc = window.__tc;
-      const auto = document.querySelector('.tc-auto');
+      const auto = window.__tc.element.querySelector('.tc-auto');
       window.__pt(auto, 'pointerdown', 16, 0, 0);
       window.__pt(auto, 'pointerup', 16, 0, 0);
       const offState = {
         auto: tc.autoThrottle,
         throttle: tc.state.throttle,
-        accelVisible: document.querySelector('.tc-accel').classList.contains('hidden') === false,
+        accelVisible: window.__tc.element.querySelector('.tc-accel').classList.contains('hidden') === false,
       };
-      const gas = document.querySelector('.tc-accel');
+      const gas = window.__tc.element.querySelector('.tc-accel');
       window.__pt(gas, 'pointerdown', 17, 0, 0);
       const gasHeld = tc.state.throttle;
       window.__pt(gas, 'pointerup', 17, 0, 0);
@@ -228,14 +228,14 @@ async function main() {
     // Restaura AUTO y deja el volante y el derrape activos para la captura.
     await page.evaluate(() => {
       const tc = window.__tc;
-      const auto = document.querySelector('.tc-auto');
+      const auto = window.__tc.element.querySelector('.tc-auto');
       window.__pt(auto, 'pointerdown', 18, 0, 0);
       window.__pt(auto, 'pointerup', 18, 0, 0);
-      const pad = document.querySelector('.tc-pad');
+      const pad = window.__tc.element.querySelector('.tc-pad');
       window.__pt(pad, 'pointerdown', 21, -20, 10);
       window.__pt(pad, 'pointermove', 21, 40, 0);
-      window.__pt(document.querySelector('.tc-drift'), 'pointerdown', 22, 0, 0);
-      window.__pt(document.querySelector('.tc-brake'), 'pointerdown', 23, 0, 0);
+      window.__pt(window.__tc.element.querySelector('.tc-drift'), 'pointerdown', 22, 0, 0);
+      window.__pt(window.__tc.element.querySelector('.tc-brake'), 'pointerdown', 23, 0, 0);
     });
     await page.waitForTimeout(250);
 
@@ -245,7 +245,7 @@ async function main() {
     const hidden = await page.evaluate(() => {
       const tc = window.__tc;
       tc.hide();
-      const root = document.querySelector('.tc-root');
+      const root = window.__tc.element;
       return {
         steer: tc.state.steer,
         brake: tc.state.brake,
@@ -260,7 +260,7 @@ async function main() {
     const mouseIgnored = await page.evaluate(() => {
       const tc = window.__tc;
       tc.show();
-      const pad = document.querySelector('.tc-pad');
+      const pad = window.__tc.element.querySelector('.tc-pad');
       pad.dispatchEvent(
         new PointerEvent('pointerdown', {
           pointerId: 99,
@@ -298,9 +298,9 @@ async function main() {
     await page.close();
     const wide = await context.newPage();
     await wide.setViewportSize({ width: 1600, height: 720 });
-    await wide.goto(`${BASE}/?autotest=1&track=meadow`, {
+    await wide.goto(`${BASE}/?autotest=1&track=meadow&q=low`, {
       waitUntil: 'domcontentloaded',
-      timeout: 60000,
+      timeout: 150000,
     });
     try {
       await wide.waitForFunction(() => window.__game && window.__game.state === 'race', null, {
@@ -316,7 +316,7 @@ async function main() {
       const tc = mod.createTouchControls(document.body);
       window.__tc = tc;
       tc.show();
-      const pad = document.querySelector('.tc-pad');
+      const pad = window.__tc.element.querySelector('.tc-pad');
       const pt = (el, type, id, dx = 0, dy = 0) => {
         const r = el.getBoundingClientRect();
         el.dispatchEvent(
@@ -333,9 +333,9 @@ async function main() {
       };
       pt(pad, 'pointerdown', 31, -30, 10);
       pt(pad, 'pointermove', 31, 55, 0);
-      pt(document.querySelector('.tc-drift'), 'pointerdown', 32, 0, 0);
+      pt(window.__tc.element.querySelector('.tc-drift'), 'pointerdown', 32, 0, 0);
       const rect = (s) => {
-        const b = document.querySelector(s).getBoundingClientRect();
+        const b = (window.__tc.element.querySelector(s) || document.querySelector(s)).getBoundingClientRect();
         return { l: b.left, t: b.top, r: b.right, b: b.bottom };
       };
       const overlap = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
@@ -358,7 +358,7 @@ async function main() {
         speedo.style.left = '16px';
       }
       tc.show(); // recalcula --tc-reserve
-      const reserve = getComputedStyle(document.querySelector('.tc-root'))
+      const reserve = getComputedStyle(window.__tc.element)
         .getPropertyValue('--tc-reserve')
         .trim();
       const acts2 = rect('.tc-actions');
@@ -387,6 +387,7 @@ async function main() {
     process.stderr.write(
       'touch-check falló: ' + (err && err.stack ? err.stack : String(err)) + '\n'
     );
+    process.stderr.write('checks parciales: ' + JSON.stringify(checks) + '\n');
     process.exit(1);
   } finally {
     if (browser) await browser.close();

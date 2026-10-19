@@ -3,10 +3,12 @@
 // `createRenderPipeline(renderer, scene, camera, opts)` devuelve el pipeline de
 // postprocesado que sustituye a `renderer.render(scene, camera)`.
 //
-// Cadena para `high`:
-//   RenderPass → GTAOPass → UnrealBloomPass → Grading (ShaderPass) →
-//   SMAAPass → OutputPass
-// `ultra`: igual, con GTAO a resolución completa, bloom más rico y sombras 4096.
+// Cadena para `high` (presupuesto SPEC C12: < 300 draw calls por frame):
+//   RenderPass → UnrealBloomPass → Grading (ShaderPass) → SMAAPass → OutputPass
+// `ultra`: high + GTAOPass (tras el RenderPass) a resolución completa, bloom más
+//   rico y sombras 4096. El pase de normales de GTAO repite toda la escena
+//   (~200 draw calls), por eso SOLO existe en ultra, y se ejecuta con
+//   `renderer.shadowMap.autoUpdate = false` para no repintar los shadow maps.
 // `low`: `renderer.render` directo, sin composer.
 //
 // TONE MAPPING (una sola vez): desde three r152 los materiales solo aplican
@@ -84,20 +86,6 @@ export function createRenderPipeline(renderer, scene, camera, opts = {}) {
     renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    // Oclusión ambiental de horizonte (GTAO). Radio/escala pensados para karts
-    // de ~2 m: contactos bajo ruedas y objetos del escenario.
-    gtaoPass = new GTAOPass(scene, camera, 1, 1, undefined, {
-      radius: 0.55,
-      distanceExponent: 2.0,
-      thickness: 1.0,
-      scale: 1.0,
-      samples: 16,
-      screenSpaceRadius: false,
-    });
-    gtaoPass.output = GTAOPass.OUTPUT.Default;
-    gtaoPass.blendIntensity = 0.85;
-    composer.addPass(gtaoPass);
-
     // Bloom: umbral alto para que solo florezcan emisivos, chispas, turbo y sol.
     bloomPass = new UnrealBloomPass(new THREE.Vector2(cssW, cssH), 0.55, 0.5, 1.05);
     composer.addPass(bloomPass);
@@ -115,18 +103,64 @@ export function createRenderPipeline(renderer, scene, camera, opts = {}) {
   }
 
   // ----------------------------------------------------------------
+  // GTAO (solo ultra). Se crea/inserta bajo demanda tras el RenderPass y se
+  // retira al salir de ultra para no pagar su pase de normales.
+  // ----------------------------------------------------------------
+  function addGtao() {
+    if (gtaoPass || !composer) return;
+    // Oclusión ambiental de horizonte. Radio/escala pensados para karts de ~2 m:
+    // contactos bajo ruedas y objetos del escenario.
+    gtaoPass = new GTAOPass(scene, camera, 1, 1, undefined, {
+      radius: 0.55,
+      distanceExponent: 2.0,
+      thickness: 1.0,
+      scale: 1.0,
+      samples: 24,
+      screenSpaceRadius: false,
+    });
+    gtaoPass.output = GTAOPass.OUTPUT.Default;
+    gtaoPass.blendIntensity = 1.0;
+
+    // El pase de normales interno llama a renderer.render(), que actualiza el
+    // shadow map en cada llamada. Las sombras ya las pintó el RenderPass de
+    // este mismo frame: se congelan durante el pase GTAO y se restaura el valor.
+    const origRender = gtaoPass.render.bind(gtaoPass);
+    gtaoPass.render = function (...args) {
+      const sm = renderer.shadowMap;
+      const prev = sm.autoUpdate;
+      sm.autoUpdate = false;
+      try {
+        origRender(...args);
+      } finally {
+        sm.autoUpdate = prev;
+      }
+    };
+    composer.insertPass(gtaoPass, 1);
+  }
+
+  function removeGtao() {
+    if (!gtaoPass) return;
+    if (composer) {
+      const i = composer.passes.indexOf(gtaoPass);
+      if (i >= 0) composer.passes.splice(i, 1);
+    }
+    if (gtaoPass.dispose) gtaoPass.dispose();
+    gtaoPass = null;
+  }
+
+  // ----------------------------------------------------------------
   // Parámetros dependientes de la calidad
   // ----------------------------------------------------------------
   function applyQualityParams() {
     const ultra = quality === 'ultra';
+    if (composer) {
+      if (ultra) addGtao();
+      else removeGtao();
+    }
     if (bloomPass) {
       bloomPass.strength = ultra ? 0.8 : 0.55;
       bloomPass.radius = ultra ? 0.62 : 0.5;
       bloomPass.threshold = ultra ? 0.9 : 1.05;
-    }
-    if (gtaoPass) {
-      gtaoPass.blendIntensity = ultra ? 1.0 : 0.85;
-      gtaoPass.updateGtaoMaterial({ samples: ultra ? 24 : 16 });
     }
     sun.setMapSize(ultra ? 4096 : 2048);
   }
@@ -141,10 +175,9 @@ export function createRenderPipeline(renderer, scene, camera, opts = {}) {
       composer.setSize(cssW, cssH);
     }
     if (gtaoPass) {
-      // high: GTAO a media resolución (más barato); ultra: resolución completa.
-      const s = quality === 'ultra' ? 1 : 0.5;
-      const w = Math.max(1, Math.round(cssW * pr * s));
-      const h = Math.max(1, Math.round(cssH * pr * s));
+      // GTAO solo existe en ultra: resolución completa.
+      const w = Math.max(1, Math.round(cssW * pr));
+      const h = Math.max(1, Math.round(cssH * pr));
       gtaoPass.setSize(w, h);
     }
     if (grading) grading.setSize(Math.round(cssW * pr), Math.round(cssH * pr));

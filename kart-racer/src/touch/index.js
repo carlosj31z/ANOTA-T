@@ -4,7 +4,12 @@
 // móvil en horizontal:
 //   · izquierda → volante virtual (stick) o flechas ◀ ▶ (mode: 'buttons')
 //   · derecha   → OBJETO, DERRAPE, FRENO, ACELERAR (si se apaga el AUTO)
-//   · arriba    → pausa (centro-derecha)
+//   · arriba    → pausa (esquina superior izquierda, bajo la casilla de objeto)
+//
+// Teclado/mando: en cuanto se detecta un `keydown` o input de mando los
+// controles se ocultan y `state` se anula (throttle/brake/steer/drift = 0)
+// hasta el siguiente toque en pantalla. Así un portátil táctil jugado con
+// teclado no acelera solo.
 //
 // Multitáctil con Pointer Events + setPointerCapture. No interfiere con el
 // ratón en PC: los punteros `mouse` se ignoran y cuando está oculto/desactivado
@@ -28,6 +33,27 @@ function touchEnabled() {
   const has =
     'ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0);
   return forced || has;
+}
+
+// Dispositivo móvil "de verdad": puntero principal grueso y sin hover. Un
+// portátil táctil tiene (pointer: fine) y (hover: hover) → no es móvil, el
+// acelerador automático NO debe estar activo por defecto. `?touch=1` fuerza
+// el modo móvil (pruebas) y también activa AUTO.
+function isMobileDevice() {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (new URLSearchParams(window.location.search).get('touch') === '1') return true;
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof window.matchMedia !== 'function') return false;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const hover = window.matchMedia('(hover: hover)').matches;
+    return coarse && !hover;
+  } catch {
+    return false;
+  }
 }
 
 function clamp(v, a, b) {
@@ -80,7 +106,7 @@ export function createTouchControls(root, opts = {}) {
     </div>
     <div class="tc-actions">
       <button class="tc-btn tc-accel hidden" type="button" aria-label="Acelerar">GAS</button>
-      <button class="tc-btn tc-auto on" type="button" aria-label="Acelerador automático">AUTO</button>
+      <button class="tc-btn tc-auto" type="button" aria-label="Acelerador automático">AUTO</button>
       <button class="tc-btn tc-object" type="button" aria-label="Usar objeto">${ICON_BOX}</button>
       <button class="tc-btn tc-brake" type="button" aria-label="Frenar">FRENO</button>
       <button class="tc-btn tc-drift" type="button" aria-label="Derrapar">DERRAPE</button>
@@ -102,7 +128,11 @@ export function createTouchControls(root, opts = {}) {
 
   let enabled = touchEnabled();
   let visible = false;
-  let autoThrottle = true;
+  // true = el usuario está usando teclado/mando: controles ocultos y state a 0.
+  let suppressed = false;
+  let autoThrottle = isMobileDevice();
+  btnAuto.classList.toggle('on', autoThrottle);
+  btnAccel.classList.toggle('hidden', autoThrottle);
   let accelHeld = false;
   let pendingUse = false;
   let pendingPause = false;
@@ -116,7 +146,8 @@ export function createTouchControls(root, opts = {}) {
   }
 
   function syncThrottle() {
-    if (state.brake > 0) state.throttle = 0;
+    if (suppressed) state.throttle = 0;
+    else if (state.brake > 0) state.throttle = 0;
     else if (autoThrottle || accelHeld) state.throttle = 1;
     else state.throttle = 0;
   }
@@ -198,7 +229,7 @@ export function createTouchControls(root, opts = {}) {
 
   // --- utilidades de punteros ------------------------------------------------
   function accept(e) {
-    return visible && enabled && e.pointerType !== 'mouse';
+    return visible && enabled && !suppressed && e.pointerType !== 'mouse';
   }
 
   function bindHold(btn, onDown, onUp) {
@@ -362,6 +393,66 @@ export function createTouchControls(root, opts = {}) {
   }
   window.addEventListener('resize', onResize);
 
+  function syncHidden() {
+    el.classList.toggle('hidden', !visible || suppressed);
+  }
+
+  // Teclado / mando → modo escritorio: oculta controles y anula el estado.
+  function suppress() {
+    if (suppressed) return;
+    suppressed = true;
+    resetState();
+    syncHidden();
+  }
+
+  // Un toque real en pantalla devuelve los controles táctiles.
+  function unsuppress() {
+    if (!suppressed) return;
+    suppressed = false;
+    resetState();
+    syncHidden();
+  }
+
+  function onKeyDown(e) {
+    if (!enabled) return;
+    // Ignora teclas sintéticas de modificadores sueltos del sistema.
+    if (e && e.isComposing) return;
+    suppress();
+  }
+
+  function onAnyPointerDown(e) {
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') unsuppress();
+  }
+
+  function onTouchStartWin() {
+    unsuppress();
+  }
+
+  let padPollTimer = 0;
+  function gamepadActive() {
+    let pads = null;
+    try {
+      pads = navigator.getGamepads ? navigator.getGamepads() : null;
+    } catch {
+      pads = null;
+    }
+    if (!pads) return false;
+    for (const gp of pads) {
+      if (!gp || !gp.connected) continue;
+      for (const b of gp.buttons) if (b && (b.pressed || b.value > 0.5)) return true;
+      for (const a of gp.axes) if (Math.abs(a) > 0.6) return true;
+    }
+    return false;
+  }
+  function pollGamepad() {
+    if (gamepadActive()) suppress();
+  }
+
+  window.addEventListener('keydown', onKeyDown, true);
+  window.addEventListener('pointerdown', onAnyPointerDown, true);
+  window.addEventListener('touchstart', onTouchStartWin, { capture: true, passive: true });
+  window.addEventListener('gamepadconnected', pollGamepad);
+
   function resetState() {
     steerId = null;
     arrows.clear();
@@ -375,14 +466,19 @@ export function createTouchControls(root, opts = {}) {
 
   function show() {
     visible = true;
-    el.classList.remove('hidden');
+    syncHidden();
     positionActions();
+    if (!padPollTimer) padPollTimer = window.setInterval(pollGamepad, 200);
   }
 
   function hide() {
     visible = false;
-    el.classList.add('hidden');
+    syncHidden();
     resetState();
+    if (padPollTimer) {
+      window.clearInterval(padPollTimer);
+      padPollTimer = 0;
+    }
   }
 
   function consumeUseItem() {
@@ -399,6 +495,12 @@ export function createTouchControls(root, opts = {}) {
 
   function dispose() {
     window.removeEventListener('resize', onResize);
+    window.removeEventListener('keydown', onKeyDown, true);
+    window.removeEventListener('pointerdown', onAnyPointerDown, true);
+    window.removeEventListener('touchstart', onTouchStartWin, true);
+    window.removeEventListener('gamepadconnected', pollGamepad);
+    if (padPollTimer) window.clearInterval(padPollTimer);
+    padPollTimer = 0;
     el.remove();
   }
 
@@ -417,6 +519,9 @@ export function createTouchControls(root, opts = {}) {
     },
     get autoThrottle() {
       return autoThrottle;
+    },
+    get suppressed() {
+      return suppressed;
     },
     get mode() {
       return mode;
